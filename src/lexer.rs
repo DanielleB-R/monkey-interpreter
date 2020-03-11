@@ -24,25 +24,47 @@ impl Lexer {
     }
 
     fn read_char(&mut self) {
-        if self.read_position >= self.input.len() {
-            self.ch = 0;
-        } else {
-            self.ch = self.input.as_bytes()[self.read_position];
-        }
+        self.ch = *self.input.as_bytes().get(self.read_position).unwrap_or(&0);
         self.position = self.read_position;
         self.read_position += 1;
+    }
+
+    fn peek_char(&self) -> u8 {
+        *self.input.as_bytes().get(self.read_position).unwrap_or(&0)
     }
 
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
         let token = match self.ch {
-            b'=' => Token::new_from_char(TokenType::Assign, self.ch),
+            b'=' => {
+                if self.peek_char() == b'=' {
+                    let ch = self.ch;
+                    self.read_char();
+                    Token {
+                        token_type: TokenType::Eq,
+                        literal: String::from_utf8(vec![ch, self.ch]).unwrap(),
+                    }
+                } else {
+                    Token::new_from_char(TokenType::Assign, self.ch)
+                }
+            }
             b'+' => Token::new_from_char(TokenType::Plus, self.ch),
             b'-' => Token::new_from_char(TokenType::Minus, self.ch),
             b'*' => Token::new_from_char(TokenType::Asterisk, self.ch),
             b'/' => Token::new_from_char(TokenType::Slash, self.ch),
-            b'!' => Token::new_from_char(TokenType::Bang, self.ch),
+            b'!' => {
+                if self.peek_char() == b'=' {
+                    let ch = self.ch;
+                    self.read_char();
+                    Token {
+                        token_type: TokenType::NotEq,
+                        literal: String::from_utf8(vec![ch, self.ch]).unwrap(),
+                    }
+                } else {
+                    Token::new_from_char(TokenType::Bang, self.ch)
+                }
+            }
             b'<' => Token::new_from_char(TokenType::LT, self.ch),
             b'>' => Token::new_from_char(TokenType::GT, self.ch),
             b';' => Token::new_from_char(TokenType::Semicolon, self.ch),
@@ -117,6 +139,9 @@ if (5 < 10) {
 } else {
     return false;
 }
+
+10 == 10;
+10 != 9;
 "
         .to_owned();
 
@@ -186,6 +211,14 @@ if (5 < 10) {
             (TokenType::False, "false"),
             (TokenType::Semicolon, ";"),
             (TokenType::RBrace, "}"),
+            (TokenType::Int, "10"),
+            (TokenType::Eq, "=="),
+            (TokenType::Int, "10"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::Int, "10"),
+            (TokenType::NotEq, "!="),
+            (TokenType::Int, "9"),
+            (TokenType::Semicolon, ";"),
             (TokenType::Eof, ""),
         ];
 
