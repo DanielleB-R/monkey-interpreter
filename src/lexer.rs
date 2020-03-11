@@ -38,11 +38,17 @@ impl Lexer {
 
         let token = match self.ch {
             b'=' => Token::new_from_char(TokenType::Assign, self.ch),
+            b'+' => Token::new_from_char(TokenType::Plus, self.ch),
+            b'-' => Token::new_from_char(TokenType::Minus, self.ch),
+            b'*' => Token::new_from_char(TokenType::Asterisk, self.ch),
+            b'/' => Token::new_from_char(TokenType::Slash, self.ch),
+            b'!' => Token::new_from_char(TokenType::Bang, self.ch),
+            b'<' => Token::new_from_char(TokenType::LT, self.ch),
+            b'>' => Token::new_from_char(TokenType::GT, self.ch),
             b';' => Token::new_from_char(TokenType::Semicolon, self.ch),
             b'(' => Token::new_from_char(TokenType::LParen, self.ch),
             b')' => Token::new_from_char(TokenType::RParen, self.ch),
             b',' => Token::new_from_char(TokenType::Comma, self.ch),
-            b'+' => Token::new_from_char(TokenType::Plus, self.ch),
             b'{' => Token::new_from_char(TokenType::LBrace, self.ch),
             b'}' => Token::new_from_char(TokenType::RBrace, self.ch),
             0 => Token {
@@ -103,6 +109,8 @@ let add = fn(x, y) {
 };
 
 let result = add(five, ten);
+!-/*5;
+5 < 10 > 5;
 "
         .to_owned();
 
@@ -142,6 +150,18 @@ let result = add(five, ten);
             (TokenType::Comma, ","),
             (TokenType::Ident, "ten"),
             (TokenType::RParen, ")"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::Bang, "!"),
+            (TokenType::Minus, "-"),
+            (TokenType::Slash, "/"),
+            (TokenType::Asterisk, "*"),
+            (TokenType::Int, "5"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::Int, "5"),
+            (TokenType::LT, "<"),
+            (TokenType::Int, "10"),
+            (TokenType::GT, ">"),
+            (TokenType::Int, "5"),
             (TokenType::Semicolon, ";"),
             (TokenType::Eof, ""),
         ];
