@@ -27,8 +27,13 @@ pub enum TokenType {
     RBrace,
 
     // Keywords
+    Else,
+    False,
     Function,
+    If,
     Let,
+    Return,
+    True,
 }
 
 impl TokenType {
@@ -37,6 +42,11 @@ impl TokenType {
         match name {
             "let" => Self::Let,
             "fn" => Self::Function,
+            "if" => Self::If,
+            "return" => Self::Return,
+            "true" => Self::True,
+            "else" => Self::Else,
+            "false" => Self::False,
             _ => Self::Ident,
         }
     }
