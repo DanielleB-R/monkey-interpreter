@@ -7,6 +7,10 @@ pub struct Lexer {
     ch: u8,
 }
 
+fn is_letter(c: u8) -> bool {
+    c.is_ascii_alphabetic() || c == b'_'
+}
+
 impl Lexer {
     pub fn new(input: String) -> Self {
         let mut lexer = Self {
@@ -29,7 +33,9 @@ impl Lexer {
         self.read_position += 1;
     }
 
-    fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token {
+        self.skip_whitespace();
+
         let token = match self.ch {
             b'=' => Token::new_from_char(TokenType::Assign, self.ch),
             b';' => Token::new_from_char(TokenType::Semicolon, self.ch),
@@ -39,11 +45,47 @@ impl Lexer {
             b'+' => Token::new_from_char(TokenType::Plus, self.ch),
             b'{' => Token::new_from_char(TokenType::LBrace, self.ch),
             b'}' => Token::new_from_char(TokenType::RBrace, self.ch),
-            0 => Token::new(TokenType::Eof, ""),
-            _ => panic!("unrecognized char"),
+            0 => Token {
+                token_type: TokenType::Eof,
+                literal: "".to_owned(),
+            },
+            c => {
+                if is_letter(c) {
+                    return Token::new(self.read_identifier());
+                } else if c.is_ascii_digit() {
+                    return Token {
+                        token_type: TokenType::Int,
+                        literal: self.read_number().to_owned(),
+                    };
+                } else {
+                    Token::new_from_char(TokenType::Illegal, c)
+                }
+            }
         };
         self.read_char();
         token
+    }
+
+    fn read_identifier(&mut self) -> &str {
+        let start = self.position;
+        while is_letter(self.ch) {
+            self.read_char()
+        }
+        &self.input[start..self.position]
+    }
+
+    fn read_number(&mut self) -> &str {
+        let start = self.position;
+        while self.ch.is_ascii_digit() {
+            self.read_char()
+        }
+        &self.input[start..self.position]
+    }
+
+    fn skip_whitespace(&mut self) {
+        while self.ch.is_ascii_whitespace() {
+            self.read_char();
+        }
     }
 }
 
@@ -53,16 +95,53 @@ mod test {
 
     #[test]
     fn test_next_token() {
-        let input = "=+(){},;".to_owned();
+        let input = "let five = 5;
+let ten = 10;
+
+let add = fn(x, y) {
+  x + y;
+};
+
+let result = add(five, ten);
+"
+        .to_owned();
 
         let cases = [
+            (TokenType::Let, "let"),
+            (TokenType::Ident, "five"),
             (TokenType::Assign, "="),
-            (TokenType::Plus, "+"),
+            (TokenType::Int, "5"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::Let, "let"),
+            (TokenType::Ident, "ten"),
+            (TokenType::Assign, "="),
+            (TokenType::Int, "10"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::Let, "let"),
+            (TokenType::Ident, "add"),
+            (TokenType::Assign, "="),
+            (TokenType::Function, "fn"),
             (TokenType::LParen, "("),
+            (TokenType::Ident, "x"),
+            (TokenType::Comma, ","),
+            (TokenType::Ident, "y"),
             (TokenType::RParen, ")"),
             (TokenType::LBrace, "{"),
+            (TokenType::Ident, "x"),
+            (TokenType::Plus, "+"),
+            (TokenType::Ident, "y"),
+            (TokenType::Semicolon, ";"),
             (TokenType::RBrace, "}"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::Let, "let"),
+            (TokenType::Ident, "result"),
+            (TokenType::Assign, "="),
+            (TokenType::Ident, "add"),
+            (TokenType::LParen, "("),
+            (TokenType::Ident, "five"),
             (TokenType::Comma, ","),
+            (TokenType::Ident, "ten"),
+            (TokenType::RParen, ")"),
             (TokenType::Semicolon, ";"),
             (TokenType::Eof, ""),
         ];
