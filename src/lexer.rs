@@ -11,6 +11,14 @@ fn is_letter(c: u8) -> bool {
     c.is_ascii_alphabetic() || c == b'_'
 }
 
+impl Iterator for Lexer {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(self.next_token())
+    }
+}
+
 impl Lexer {
     pub fn new(input: String) -> Self {
         let mut lexer = Self {
@@ -220,15 +228,17 @@ if (5 < 10) {
             (TokenType::Int, "9"),
             (TokenType::Semicolon, ";"),
             (TokenType::Eof, ""),
-        ];
+        ]
+        .iter()
+        .map(|(token_type, literal)| Token {
+            token_type: *token_type,
+            literal: (*literal).to_owned(),
+        });
 
-        let mut lexer = Lexer::new(input);
+        let lexer = Lexer::new(input);
 
-        for case in cases.iter() {
-            let token = lexer.next_token();
-
-            assert_eq!(token.token_type, case.0);
-            assert_eq!(token.literal, case.1);
+        for (case, token) in cases.zip(lexer) {
+            assert_eq!(token, case);
         }
     }
 }
