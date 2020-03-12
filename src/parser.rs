@@ -7,6 +7,7 @@ pub struct Parser {
     lexer: lexer::Lexer,
     cur_token: token::Token,
     peek_token: token::Token,
+    errors: Vec<String>,
 }
 
 impl Parser {
@@ -18,6 +19,7 @@ impl Parser {
             lexer,
             cur_token,
             peek_token,
+            errors: vec![],
         }
     }
 
@@ -26,17 +28,21 @@ impl Parser {
         self.peek_token = self.lexer.next_token();
     }
 
-    pub fn parse_program(mut self) -> Option<ast::Program> {
+    pub fn parse_program(mut self) -> Result<ast::Program, Vec<String>> {
         let mut program = ast::Program::default();
 
-        while self.cur_token.token_type != TokenType::Eof {
+        while !self.cur_token.is(TokenType::Eof) {
             if let Some(stmt) = self.parse_statement() {
                 program.statements.push(stmt)
             }
             self.next_token();
         }
 
-        Some(program)
+        if self.errors.is_empty() {
+            Ok(program)
+        } else {
+            Err(self.errors)
+        }
     }
 
     fn parse_statement(&mut self) -> Option<Statement> {
@@ -60,7 +66,7 @@ impl Parser {
         }
 
         // TODO: We're skipping the expression for now
-        while self.cur_token.token_type != TokenType::Semicolon {
+        while !self.cur_token.is(TokenType::Semicolon) {
             self.next_token();
         }
 
@@ -68,12 +74,20 @@ impl Parser {
     }
 
     fn expect_peek(&mut self, expected: TokenType) -> bool {
-        if self.peek_token.token_type == expected {
+        if self.peek_token.is(expected) {
             self.next_token();
             true
         } else {
+            self.peek_error(expected);
             false
         }
+    }
+
+    fn peek_error(&mut self, expected: TokenType) {
+        self.errors.push(format!(
+            "expected next token to be {:?}, got {:?} instead",
+            expected, self.peek_token.token_type
+        ));
     }
 }
 
@@ -111,7 +125,7 @@ let foobar = 838383;
                 assert_eq!(let_stmt.name.value, name);
                 assert_eq!(let_stmt.name.token_literal(), name);
             }
-            _ => assert!(false),
+            _ => panic!(),
         }
     }
 }

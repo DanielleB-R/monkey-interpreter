@@ -74,4 +74,8 @@ impl Token {
             literal: String::from_utf8(vec![ch]).unwrap(),
         }
     }
+
+    pub fn is(&self, token_type: TokenType) -> bool {
+        self.token_type == token_type
+    }
 }
