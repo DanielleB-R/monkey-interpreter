@@ -48,6 +48,7 @@ impl Parser {
     fn parse_statement(&mut self) -> Option<Statement> {
         match self.cur_token.token_type {
             TokenType::Let => self.parse_let_statement().map(Statement::Let),
+            TokenType::Return => self.parse_return_statement().map(Statement::Return),
             _ => None,
         }
     }
@@ -71,6 +72,19 @@ impl Parser {
         }
 
         Some(ast::LetStatement { token, name })
+    }
+
+    fn parse_return_statement(&mut self) -> Option<ast::ReturnStatement> {
+        let token = self.cur_token.clone();
+
+        self.next_token();
+
+        // TODO: We're skipping the expression for now
+        while !self.cur_token.is(TokenType::Semicolon) {
+            self.next_token();
+        }
+
+        Some(ast::ReturnStatement { token })
     }
 
     fn expect_peek(&mut self, expected: TokenType) -> bool {
@@ -106,7 +120,7 @@ let foobar = 838383;
         let lexer = lexer::Lexer::new(input);
         let parser = Parser::new(lexer);
 
-        let program = parser.parse_program().unwrap();
+        let program = parser.parse_program().expect("Parse errors found");
 
         assert_eq!(program.statements.len(), 3);
 
@@ -126,6 +140,31 @@ let foobar = 838383;
                 assert_eq!(let_stmt.name.token_literal(), name);
             }
             _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let input = "
+return 5;
+return 10;
+return 993322;
+"
+        .to_owned();
+        let lexer = lexer::Lexer::new(input);
+        let parser = Parser::new(lexer);
+
+        let program = parser.parse_program().expect("Parse errors found");
+
+        assert_eq!(program.statements.len(), 3);
+
+        for stmt in program.statements.iter() {
+            match stmt {
+                Statement::Return(ret_stmt) => {
+                    assert_eq!(ret_stmt.token_literal(), "return");
+                }
+                _ => panic!(),
+            }
         }
     }
 }
