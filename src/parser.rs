@@ -4,7 +4,7 @@ use crate::{ast, lexer, token};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-type PrefixParseFn = fn(&mut Parser) -> ast::Expression;
+type PrefixParseFn = fn(&mut Parser) -> Option<ast::Expression>;
 type InfixParseFn = fn(&mut Parser, ast::Expression) -> ast::Expression;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -36,6 +36,7 @@ impl Parser {
 
         let mut prefix_parse_fns: HashMap<TokenType, PrefixParseFn> = Default::default();
         prefix_parse_fns.insert(TokenType::Ident, Self::parse_identifier);
+        prefix_parse_fns.insert(TokenType::Int, Self::parse_integer_literal);
 
         Self {
             lexer,
@@ -103,7 +104,11 @@ impl Parser {
             self.next_token();
         }
 
-        Some(ast::LetStatement { token, name })
+        Some(ast::LetStatement {
+            token,
+            name,
+            value: Expression::Nil,
+        })
     }
 
     fn parse_return_statement(&mut self) -> Option<ast::ReturnStatement> {
@@ -116,7 +121,10 @@ impl Parser {
             self.next_token();
         }
 
-        Some(ast::ReturnStatement { token })
+        Some(ast::ReturnStatement {
+            token,
+            return_value: Expression::Nil,
+        })
     }
 
     fn parse_expression_statement(&mut self) -> Option<ast::ExpressionStatement> {
@@ -137,13 +145,31 @@ impl Parser {
     fn parse_expression(&mut self, precedence: Precedence) -> Option<ast::Expression> {
         let prefix = self.prefix_parse_fns.get(&self.cur_token.token_type)?;
 
-        let left_exp = prefix(self);
-
-        Some(left_exp)
+        prefix(self)
     }
 
-    fn parse_identifier(&mut self) -> ast::Expression {
-        Expression::Identifier(self.cur_token.clone().into())
+    fn parse_identifier(&mut self) -> Option<ast::Expression> {
+        Some(Expression::Identifier(self.cur_token.clone().into()))
+    }
+
+    fn parse_integer_literal(&mut self) -> Option<ast::Expression> {
+        let token = self.cur_token.clone();
+
+        let value: i64 = match self.cur_token.literal.parse::<i64>() {
+            Ok(v) => v,
+            Err(_) => {
+                self.errors.push(format!(
+                    "could not parse {} as integer",
+                    self.cur_token.literal
+                ));
+                return None;
+            }
+        };
+
+        Some(Expression::IntegerLiteral(ast::IntegerLiteral {
+            token,
+            value,
+        }))
     }
 
     fn expect_peek(&mut self, expected: TokenType) -> bool {
@@ -246,6 +272,58 @@ return 993322;
                 }
                 _ => panic!(),
             },
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_integer_literal_expression() {
+        let input = "5;".to_owned();
+
+        let lexer = lexer::Lexer::new(input);
+        let parser = Parser::new(lexer);
+
+        let program = parser.parse_program().expect("Parse errors found");
+
+        assert_eq!(program.statements.len(), 1);
+
+        match &program.statements[0] {
+            Statement::Expr(stmt) => test_integer_literal(&stmt.expression, 5),
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_parsing_prefix_expressions() {
+        let cases = [("!5;", "!", 5), ("-15;", "-", 15)];
+
+        for (input, operator, value) in cases.iter() {
+            let lexer = lexer::Lexer::new((*input).to_owned());
+            let parser = Parser::new(lexer);
+
+            let program = parser.parse_program().expect("Parse errors found");
+
+            assert_eq!(program.statements.len(), 1);
+
+            match &program.statements[0] {
+                Statement::Expr(stmt) => match &stmt.expression {
+                    Expression::Prefix(exp) => {
+                        assert_eq!(exp.operator, *operator);
+                        test_integer_literal(&exp.right, *value);
+                    }
+                    _ => panic!(),
+                },
+                _ => panic!(),
+            }
+        }
+    }
+
+    fn test_integer_literal(expr: &ast::Expression, value: i64) {
+        match expr {
+            Expression::IntegerLiteral(literal) => {
+                assert_eq!(literal.value, value);
+                assert_eq!(literal.token_literal(), value.to_string());
+            }
             _ => panic!(),
         }
     }
