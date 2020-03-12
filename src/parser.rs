@@ -37,6 +37,8 @@ impl Parser {
         let mut prefix_parse_fns: HashMap<TokenType, PrefixParseFn> = Default::default();
         prefix_parse_fns.insert(TokenType::Ident, Self::parse_identifier);
         prefix_parse_fns.insert(TokenType::Int, Self::parse_integer_literal);
+        prefix_parse_fns.insert(TokenType::Bang, Self::parse_prefix_expression);
+        prefix_parse_fns.insert(TokenType::Minus, Self::parse_prefix_expression);
 
         Self {
             lexer,
@@ -46,10 +48,6 @@ impl Parser {
             prefix_parse_fns,
             infix_parse_fns: Default::default(),
         }
-    }
-
-    fn register_prefix(&mut self, token_type: TokenType, func: PrefixParseFn) {
-        self.prefix_parse_fns.insert(token_type, func);
     }
 
     fn register_infix(&mut self, token_type: TokenType, func: InfixParseFn) {
@@ -143,9 +141,13 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Option<ast::Expression> {
-        let prefix = self.prefix_parse_fns.get(&self.cur_token.token_type)?;
-
-        prefix(self)
+        match self.prefix_parse_fns.get(&self.cur_token.token_type) {
+            Some(prefix) => prefix(self),
+            None => {
+                self.no_prefix_parse_fn_error(self.cur_token.token_type);
+                None
+            }
+        }
     }
 
     fn parse_identifier(&mut self) -> Option<ast::Expression> {
@@ -187,6 +189,28 @@ impl Parser {
             "expected next token to be {:?}, got {:?} instead",
             expected, self.peek_token.token_type
         ));
+    }
+
+    fn no_prefix_parse_fn_error(&mut self, token_type: TokenType) {
+        self.errors.push(format!(
+            "no prefix parse function for {:?} found",
+            token_type
+        ))
+    }
+
+    fn parse_prefix_expression(&mut self) -> Option<ast::Expression> {
+        let token = self.cur_token.clone();
+        let operator = token.literal.clone();
+
+        self.next_token();
+
+        let right = Box::new(self.parse_expression(Precedence::Prefix)?);
+
+        Some(Expression::Prefix(ast::PrefixExpression {
+            token,
+            operator,
+            right,
+        }))
     }
 }
 
