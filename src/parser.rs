@@ -1,13 +1,32 @@
 use crate::ast::{Expression, Node, Statement};
 use crate::token::TokenType;
 use crate::{ast, lexer, token};
+use std::collections::HashMap;
 use std::rc::Rc;
+
+type PrefixParseFn = fn(&mut Parser) -> ast::Expression;
+type InfixParseFn = fn(&mut Parser, ast::Expression) -> ast::Expression;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Precedence {
+    Lowest,
+    Equals,
+    LessGreater,
+    Sum,
+    Product,
+    Prefix,
+    Call,
+}
 
 pub struct Parser {
     lexer: lexer::Lexer,
+    errors: Vec<String>,
+
     cur_token: token::Token,
     peek_token: token::Token,
-    errors: Vec<String>,
+
+    prefix_parse_fns: HashMap<TokenType, PrefixParseFn>,
+    infix_parse_fns: HashMap<TokenType, InfixParseFn>,
 }
 
 impl Parser {
@@ -15,12 +34,25 @@ impl Parser {
         let cur_token = lexer.next_token();
         let peek_token = lexer.next_token();
 
+        let mut prefix_parse_fns: HashMap<TokenType, PrefixParseFn> = Default::default();
+        prefix_parse_fns.insert(TokenType::Ident, Self::parse_identifier);
+
         Self {
             lexer,
             cur_token,
             peek_token,
-            errors: vec![],
+            errors: Default::default(),
+            prefix_parse_fns,
+            infix_parse_fns: Default::default(),
         }
+    }
+
+    fn register_prefix(&mut self, token_type: TokenType, func: PrefixParseFn) {
+        self.prefix_parse_fns.insert(token_type, func);
+    }
+
+    fn register_infix(&mut self, token_type: TokenType, func: InfixParseFn) {
+        self.infix_parse_fns.insert(token_type, func);
     }
 
     fn next_token(&mut self) {
@@ -49,7 +81,7 @@ impl Parser {
         match self.cur_token.token_type {
             TokenType::Let => self.parse_let_statement().map(Statement::Let),
             TokenType::Return => self.parse_return_statement().map(Statement::Return),
-            _ => None,
+            _ => self.parse_expression_statement().map(Statement::Expr),
         }
     }
 
@@ -85,6 +117,33 @@ impl Parser {
         }
 
         Some(ast::ReturnStatement { token })
+    }
+
+    fn parse_expression_statement(&mut self) -> Option<ast::ExpressionStatement> {
+        let token = self.cur_token.clone();
+
+        let expression = self.parse_expression(Precedence::Lowest);
+
+        if self.peek_token.is(TokenType::Semicolon) {
+            self.next_token();
+        }
+
+        Some(ast::ExpressionStatement {
+            token,
+            expression: expression?,
+        })
+    }
+
+    fn parse_expression(&mut self, precedence: Precedence) -> Option<ast::Expression> {
+        let prefix = self.prefix_parse_fns.get(&self.cur_token.token_type)?;
+
+        let left_exp = prefix(self);
+
+        Some(left_exp)
+    }
+
+    fn parse_identifier(&mut self) -> ast::Expression {
+        Expression::Identifier(self.cur_token.clone().into())
     }
 
     fn expect_peek(&mut self, expected: TokenType) -> bool {
@@ -165,6 +224,29 @@ return 993322;
                 }
                 _ => panic!(),
             }
+        }
+    }
+
+    #[test]
+    fn test_identifier_expression() {
+        let input = "foobar;".to_owned();
+
+        let lexer = lexer::Lexer::new(input);
+        let parser = Parser::new(lexer);
+
+        let program = parser.parse_program().expect("Parse errors found");
+
+        assert_eq!(program.statements.len(), 1);
+
+        match &program.statements[0] {
+            Statement::Expr(stmt) => match &stmt.expression {
+                Expression::Identifier(ident) => {
+                    assert_eq!(ident.value, "foobar");
+                    assert_eq!(ident.token_literal(), "foobar");
+                }
+                _ => panic!(),
+            },
+            _ => panic!(),
         }
     }
 }

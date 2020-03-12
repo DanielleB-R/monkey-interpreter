@@ -116,8 +116,8 @@ impl Node for ReturnStatement {
 
 #[derive(Debug, Clone)]
 pub struct ExpressionStatement {
-    token: Token,
-    expression: Expression,
+    pub token: Token,
+    pub expression: Expression,
 }
 
 impl Display for ExpressionStatement {
