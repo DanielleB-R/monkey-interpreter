@@ -35,11 +35,10 @@ impl From<TokenType> for Precedence {
 }
 
 pub struct Parser {
-    lexer: lexer::Lexer,
+    lexer: std::iter::Peekable<lexer::Lexer>,
     errors: Vec<String>,
 
     cur_token: token::Token,
-    peek_token: token::Token,
 
     prefix_parse_fns: HashMap<TokenType, PrefixParseFn>,
     infix_parse_fns: HashMap<TokenType, InfixParseFn>,
@@ -47,8 +46,7 @@ pub struct Parser {
 
 impl Parser {
     pub fn new(mut lexer: lexer::Lexer) -> Self {
-        let cur_token = lexer.next_token();
-        let peek_token = lexer.next_token();
+        let cur_token = lexer.next().unwrap();
 
         let mut prefix_parse_fns: HashMap<TokenType, PrefixParseFn> = Default::default();
         prefix_parse_fns.insert(TokenType::Ident, Self::parse_identifier);
@@ -67,9 +65,8 @@ impl Parser {
         infix_parse_fns.insert(TokenType::GT, Self::parse_infix_expression);
 
         Self {
-            lexer,
+            lexer: lexer.peekable(),
             cur_token,
-            peek_token,
             errors: Default::default(),
             prefix_parse_fns,
             infix_parse_fns,
@@ -77,8 +74,11 @@ impl Parser {
     }
 
     fn next_token(&mut self) {
-        self.cur_token = self.peek_token.clone();
-        self.peek_token = self.lexer.next_token();
+        self.cur_token = self.lexer.next().unwrap();
+    }
+
+    fn peek_token(&mut self) -> &token::Token {
+        self.lexer.peek().unwrap()
     }
 
     pub fn parse_program(mut self) -> Result<ast::Program, Vec<String>> {
@@ -152,7 +152,7 @@ impl Parser {
 
         let expression = self.parse_expression(Precedence::Lowest);
 
-        if self.peek_token.is(TokenType::Semicolon) {
+        if self.peek_token().is(TokenType::Semicolon) {
             self.next_token();
         }
 
@@ -171,10 +171,11 @@ impl Parser {
             }
         };
 
-        while !self.peek_token.is(TokenType::Semicolon)
-            && precedence < self.peek_token.token_type.into()
+        while !self.peek_token().is(TokenType::Semicolon)
+            && precedence < self.peek_token().token_type.into()
         {
-            let infix = *match self.infix_parse_fns.get(&self.peek_token.token_type) {
+            let token_type = self.peek_token().token_type;
+            let infix = *match self.infix_parse_fns.get(&token_type) {
                 None => return Some(left),
                 Some(infix) => infix,
             };
@@ -210,7 +211,7 @@ impl Parser {
     }
 
     fn expect_peek(&mut self, expected: TokenType) -> bool {
-        if self.peek_token.is(expected) {
+        if self.peek_token().is(expected) {
             self.next_token();
             true
         } else {
@@ -220,9 +221,10 @@ impl Parser {
     }
 
     fn peek_error(&mut self, expected: TokenType) {
+        let token_type = self.peek_token().token_type;
         self.errors.push(format!(
             "expected next token to be {:?}, got {:?} instead",
-            expected, self.peek_token.token_type
+            expected, token_type
         ));
     }
 

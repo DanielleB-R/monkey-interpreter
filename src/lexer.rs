@@ -81,10 +81,7 @@ impl Lexer {
             b',' => Token::new_from_char(TokenType::Comma, self.ch),
             b'{' => Token::new_from_char(TokenType::LBrace, self.ch),
             b'}' => Token::new_from_char(TokenType::RBrace, self.ch),
-            0 => Token {
-                token_type: TokenType::Eof,
-                literal: "".to_owned(),
-            },
+            0 => Token::eof(),
             c => {
                 if is_letter(c) {
                     return Token::new(self.read_identifier());

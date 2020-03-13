@@ -83,6 +83,13 @@ impl Token {
         }
     }
 
+    pub fn eof() -> Self {
+        Self {
+            token_type: TokenType::Eof,
+            literal: "".to_owned(),
+        }
+    }
+
     pub fn is(&self, token_type: TokenType) -> bool {
         self.token_type == token_type
     }
