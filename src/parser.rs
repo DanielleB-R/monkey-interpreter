@@ -53,6 +53,8 @@ impl Parser {
         prefix_parse_fns.insert(TokenType::Int, Self::parse_integer_literal);
         prefix_parse_fns.insert(TokenType::Bang, Self::parse_prefix_expression);
         prefix_parse_fns.insert(TokenType::Minus, Self::parse_prefix_expression);
+        prefix_parse_fns.insert(TokenType::True, Self::parse_boolean);
+        prefix_parse_fns.insert(TokenType::False, Self::parse_boolean);
 
         let mut infix_parse_fns: HashMap<TokenType, InfixParseFn> = Default::default();
         infix_parse_fns.insert(TokenType::Plus, Self::parse_infix_expression);
@@ -210,6 +212,10 @@ impl Parser {
         }))
     }
 
+    fn parse_boolean(&mut self) -> Option<ast::Expression> {
+        Some(Expression::Boolean(self.cur_token.clone().into()))
+    }
+
     fn expect_peek(&mut self, expected: TokenType) -> bool {
         if self.peek_token().is(expected) {
             self.next_token();
@@ -341,13 +347,7 @@ return 993322;
         assert_eq!(program.statements.len(), 1);
 
         match &program.statements[0] {
-            Statement::Expr(stmt) => match &stmt.expression {
-                Expression::Identifier(ident) => {
-                    assert_eq!(ident.value, "foobar");
-                    assert_eq!(ident.token_literal(), "foobar");
-                }
-                _ => panic!(),
-            },
+            Statement::Expr(stmt) => test_identifier(&stmt.expression, "foobar"),
             _ => panic!(),
         }
     }
@@ -370,7 +370,12 @@ return 993322;
 
     #[test]
     fn test_parsing_prefix_expressions() {
-        let cases = [("!5;", "!", 5), ("-15;", "-", 15)];
+        let cases = [
+            ("!5;", "!", Expected::Int(5)),
+            ("-15;", "-", Expected::Int(15)),
+            ("!foobar;", "!", Expected::Ident("foobar")),
+            ("-foobar;", "-", Expected::Ident("foobar")),
+        ];
 
         for (input, operator, value) in cases.iter() {
             let program = Parser::new(Lexer::new((*input).to_owned()))
@@ -383,7 +388,7 @@ return 993322;
                 Statement::Expr(stmt) => match &stmt.expression {
                     Expression::Prefix(exp) => {
                         assert_eq!(exp.operator, *operator);
-                        test_integer_literal(&exp.right, *value);
+                        value.test(&exp.right);
                     }
                     _ => panic!(),
                 },
@@ -405,14 +410,62 @@ return 993322;
     #[test]
     fn test_parsing_infix_expressions() {
         let cases = [
-            ("5 + 5;", 5, "+", 5),
-            ("5 - 5;", 5, "-", 5),
-            ("5 * 5;", 5, "*", 5),
-            ("5 / 5;", 5, "/", 5),
-            ("5 > 5;", 5, ">", 5),
-            ("5 < 5;", 5, "<", 5),
-            ("5 == 5;", 5, "==", 5),
-            ("5 != 5;", 5, "!=", 5),
+            ("5 + 5;", Expected::Int(5), "+", Expected::Int(5)),
+            ("5 - 5;", Expected::Int(5), "-", Expected::Int(5)),
+            ("5 * 5;", Expected::Int(5), "*", Expected::Int(5)),
+            ("5 / 5;", Expected::Int(5), "/", Expected::Int(5)),
+            ("5 > 5;", Expected::Int(5), ">", Expected::Int(5)),
+            ("5 < 5;", Expected::Int(5), "<", Expected::Int(5)),
+            ("5 == 5;", Expected::Int(5), "==", Expected::Int(5)),
+            ("5 != 5;", Expected::Int(5), "!=", Expected::Int(5)),
+            (
+                "foobar + barfoo;",
+                Expected::Ident("foobar"),
+                "+",
+                Expected::Ident("barfoo"),
+            ),
+            (
+                "foobar - barfoo;",
+                Expected::Ident("foobar"),
+                "-",
+                Expected::Ident("barfoo"),
+            ),
+            (
+                "foobar * barfoo;",
+                Expected::Ident("foobar"),
+                "*",
+                Expected::Ident("barfoo"),
+            ),
+            (
+                "foobar / barfoo;",
+                Expected::Ident("foobar"),
+                "/",
+                Expected::Ident("barfoo"),
+            ),
+            (
+                "foobar > barfoo;",
+                Expected::Ident("foobar"),
+                ">",
+                Expected::Ident("barfoo"),
+            ),
+            (
+                "foobar < barfoo;",
+                Expected::Ident("foobar"),
+                "<",
+                Expected::Ident("barfoo"),
+            ),
+            (
+                "foobar == barfoo;",
+                Expected::Ident("foobar"),
+                "==",
+                Expected::Ident("barfoo"),
+            ),
+            (
+                "foobar != barfoo;",
+                Expected::Ident("foobar"),
+                "!=",
+                Expected::Ident("barfoo"),
+            ),
         ];
 
         for (input, left, op, right) in cases.iter() {
@@ -423,14 +476,7 @@ return 993322;
             assert_eq!(program.statements.len(), 1);
 
             match &program.statements[0] {
-                Statement::Expr(stmt) => match &stmt.expression {
-                    Expression::Infix(exp) => {
-                        test_integer_literal(&exp.left, *left);
-                        assert_eq!(exp.operator, *op);
-                        test_integer_literal(&exp.right, *right);
-                    }
-                    _ => panic!(),
-                },
+                Statement::Expr(stmt) => test_infix_expression(&stmt.expression, left, op, right),
                 _ => panic!(),
             }
         }
@@ -463,5 +509,78 @@ return 993322;
 
             assert_eq!(format!("{}", program), *output);
         }
+    }
+
+    #[test]
+    fn test_boolean_expression() {
+        let cases = [
+            ("true;", Expected::Bool(true)),
+            ("false;", Expected::Bool(false)),
+        ];
+
+        for (input, expected) in cases.iter() {
+            let program = Parser::new(Lexer::new((*input).to_owned()))
+                .parse_program()
+                .expect("Parse errors found");
+
+            assert_eq!(program.statements.len(), 1);
+
+            match &program.statements[0] {
+                Statement::Expr(stmt) => expected.test(&stmt.expression),
+                _ => panic!(),
+            }
+        }
+    }
+
+    fn test_identifier(exp: &ast::Expression, value: &str) {
+        match exp {
+            Expression::Identifier(ident) => {
+                assert_eq!(ident.value, value);
+                assert_eq!(ident.token_literal(), value);
+            }
+            _ => panic!(),
+        }
+    }
+
+    enum Expected<'a> {
+        Int(i64),
+        Ident(&'a str),
+        Bool(bool),
+    }
+
+    impl<'a> Expected<'a> {
+        fn test(&self, exp: &ast::Expression) {
+            match self {
+                Self::Int(n) => test_integer_literal(exp, *n),
+                Self::Ident(s) => test_identifier(exp, s),
+                Self::Bool(b) => test_boolean_literal(exp, *b),
+            }
+        }
+    }
+
+    fn test_boolean_literal(exp: &ast::Expression, value: bool) {
+        match exp {
+            Expression::Boolean(b) => {
+                assert_eq!(b.value, value);
+                assert_eq!(b.token_literal(), value.to_string());
+            }
+            _ => panic!(),
+        }
+    }
+
+    fn test_infix_expression(
+        exp: &ast::Expression,
+        left: &Expected,
+        operator: &str,
+        right: &Expected,
+    ) {
+        let infix_exp = match exp {
+            Expression::Infix(ie) => ie,
+            _ => panic!(),
+        };
+
+        left.test(&infix_exp.left);
+        assert_eq!(infix_exp.operator, operator);
+        right.test(&infix_exp.right);
     }
 }

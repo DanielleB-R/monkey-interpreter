@@ -1,11 +1,12 @@
 use super::{Identifier, Node};
-use crate::token::Token;
+use crate::token::{Token, TokenType};
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub enum Expression {
     Identifier(Identifier),
     IntegerLiteral(IntegerLiteral),
+    Boolean(Boolean),
     Prefix(PrefixExpression),
     Infix(InfixExpression),
     Nil,
@@ -18,6 +19,7 @@ impl Display for Expression {
             Self::IntegerLiteral(expr) => write!(f, "{}", expr),
             Self::Prefix(expr) => write!(f, "{}", expr),
             Self::Infix(expr) => write!(f, "{}", expr),
+            Self::Boolean(expr) => write!(f, "{}", expr),
             Self::Nil => write!(f, ""),
         }
     }
@@ -30,6 +32,7 @@ impl Node for Expression {
             Self::IntegerLiteral(expr) => expr.token(),
             Self::Prefix(expr) => expr.token(),
             Self::Infix(expr) => expr.token(),
+            Self::Boolean(expr) => expr.token(),
             Self::Nil => panic!(),
         }
     }
@@ -89,5 +92,34 @@ impl Display for InfixExpression {
 impl Node for InfixExpression {
     fn token(&self) -> &Token {
         &self.token
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Boolean {
+    pub token: Token,
+    pub value: bool,
+}
+
+impl Display for Boolean {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
+impl Node for Boolean {
+    fn token(&self) -> &Token {
+        &self.token
+    }
+}
+
+impl From<Token> for Boolean {
+    fn from(token: Token) -> Self {
+        let value = match token.token_type {
+            TokenType::True => true,
+            TokenType::False => false,
+            _ => panic!("converting non-boolean token to boolean expr"),
+        };
+        Self { token, value }
     }
 }
