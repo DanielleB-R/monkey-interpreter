@@ -5,12 +5,11 @@ pub use statement::*;
 
 use crate::token::Token;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 
 pub trait Node: Display {
     fn token(&self) -> &Token;
-    fn token_literal(&self) -> String {
-        self.token().literal.clone()
+    fn token_literal(&self) -> &str {
+        &self.token().literal
     }
 }
 
@@ -20,7 +19,7 @@ pub struct Program {
 }
 
 impl Display for Program {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         for stmt in self.statements.iter() {
             write!(f, "{}", stmt)?;
         }
@@ -33,11 +32,11 @@ impl Node for Program {
         self.statements.get(0).unwrap().token()
     }
 
-    fn token_literal(&self) -> String {
+    fn token_literal(&self) -> &str {
         self.statements
             .get(0)
             .map(|s| s.token_literal())
-            .unwrap_or_else(|| "".to_owned())
+            .unwrap_or("")
     }
 }
 
@@ -70,6 +69,7 @@ impl From<Token> for Identifier {
 mod test {
     use super::*;
     use crate::token::TokenType;
+    use std::rc::Rc;
 
     #[test]
     fn test_display() {
