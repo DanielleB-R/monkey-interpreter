@@ -270,6 +270,7 @@ impl Parser {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::lexer::Lexer;
 
     #[test]
     fn test_let_statements() {
@@ -279,17 +280,17 @@ let y = 10;
 let foobar = 838383;
 "
         .to_owned();
-        let lexer = lexer::Lexer::new(input);
-        let parser = Parser::new(lexer);
 
-        let program = parser.parse_program().expect("Parse errors found");
+        let program = Parser::new(Lexer::new(input))
+            .parse_program()
+            .expect("Parse errors found");
 
         assert_eq!(program.statements.len(), 3);
 
         let cases = [("x",), ("y",), ("foobar",)];
 
-        for (i, case) in cases.iter().enumerate() {
-            test_let_statement(&program.statements[i], case.0);
+        for (case, stmt) in cases.iter().zip(program.statements.iter()) {
+            test_let_statement(stmt, case.0);
         }
     }
 
@@ -313,10 +314,9 @@ return 10;
 return 993322;
 "
         .to_owned();
-        let lexer = lexer::Lexer::new(input);
-        let parser = Parser::new(lexer);
-
-        let program = parser.parse_program().expect("Parse errors found");
+        let program = Parser::new(Lexer::new(input))
+            .parse_program()
+            .expect("Parse errors found");
 
         assert_eq!(program.statements.len(), 3);
 
@@ -334,10 +334,9 @@ return 993322;
     fn test_identifier_expression() {
         let input = "foobar;".to_owned();
 
-        let lexer = lexer::Lexer::new(input);
-        let parser = Parser::new(lexer);
-
-        let program = parser.parse_program().expect("Parse errors found");
+        let program = Parser::new(Lexer::new(input))
+            .parse_program()
+            .expect("Parse errors found");
 
         assert_eq!(program.statements.len(), 1);
 
@@ -357,10 +356,9 @@ return 993322;
     fn test_integer_literal_expression() {
         let input = "5;".to_owned();
 
-        let lexer = lexer::Lexer::new(input);
-        let parser = Parser::new(lexer);
-
-        let program = parser.parse_program().expect("Parse errors found");
+        let program = Parser::new(Lexer::new(input))
+            .parse_program()
+            .expect("Parse errors found");
 
         assert_eq!(program.statements.len(), 1);
 
@@ -375,10 +373,9 @@ return 993322;
         let cases = [("!5;", "!", 5), ("-15;", "-", 15)];
 
         for (input, operator, value) in cases.iter() {
-            let lexer = lexer::Lexer::new((*input).to_owned());
-            let parser = Parser::new(lexer);
-
-            let program = parser.parse_program().expect("Parse errors found");
+            let program = Parser::new(Lexer::new((*input).to_owned()))
+                .parse_program()
+                .expect("Parse errors found");
 
             assert_eq!(program.statements.len(), 1);
 
@@ -419,10 +416,9 @@ return 993322;
         ];
 
         for (input, left, op, right) in cases.iter() {
-            let lexer = lexer::Lexer::new((*input).to_owned());
-            let parser = Parser::new(lexer);
-
-            let program = parser.parse_program().expect("Parse errors found");
+            let program = Parser::new(Lexer::new((*input).to_owned()))
+                .parse_program()
+                .expect("Parse errors found");
 
             assert_eq!(program.statements.len(), 1);
 
@@ -461,10 +457,9 @@ return 993322;
         ];
 
         for (input, output) in cases.iter() {
-            let lexer = lexer::Lexer::new((*input).to_owned());
-            let parser = Parser::new(lexer);
-
-            let program = parser.parse_program().expect("Parse errors found");
+            let program = Parser::new(Lexer::new((*input).to_owned()))
+                .parse_program()
+                .expect("Parse errors found");
 
             assert_eq!(format!("{}", program), *output);
         }
