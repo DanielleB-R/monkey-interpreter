@@ -57,6 +57,7 @@ impl Parser {
         prefix_parse_fns.insert(TokenType::False, Self::parse_boolean);
         prefix_parse_fns.insert(TokenType::LParen, Self::parse_grouped_expression);
         prefix_parse_fns.insert(TokenType::If, Self::parse_if_expression);
+        prefix_parse_fns.insert(TokenType::Function, Self::parse_function_literal);
 
         let mut infix_parse_fns: HashMap<TokenType, InfixParseFn> = Default::default();
         infix_parse_fns.insert(TokenType::Plus, Self::parse_infix_expression);
@@ -340,6 +341,52 @@ impl Parser {
         }
 
         ast::BlockStatement { token, statements }
+    }
+
+    fn parse_function_literal(&mut self) -> Option<ast::Expression> {
+        let token = self.cur_token.clone();
+
+        if !self.expect_peek(TokenType::LParen) {
+            return None;
+        }
+
+        let parameters = self.parse_function_parameters()?;
+
+        if !self.expect_peek(TokenType::LBrace) {
+            return None;
+        }
+
+        let body = self.parse_block_statement();
+        Some(Expression::Function(ast::FunctionLiteral {
+            token,
+            parameters,
+            body,
+        }))
+    }
+
+    fn parse_function_parameters(&mut self) -> Option<Vec<ast::Identifier>> {
+        let mut identifiers = Default::default();
+
+        if self.peek_token().is(TokenType::RParen) {
+            self.next_token();
+            return Some(identifiers);
+        }
+
+        self.next_token();
+
+        identifiers.push(self.cur_token.clone().into());
+
+        while self.peek_token().is(TokenType::Comma) {
+            self.next_token();
+            self.next_token();
+            identifiers.push(self.cur_token.clone().into());
+        }
+
+        if self.expect_peek(TokenType::RParen) {
+            Some(identifiers)
+        } else {
+            None
+        }
     }
 }
 
@@ -697,6 +744,55 @@ return 993322;
                 test_identifier(&stmt.expression, "y");
             }
             _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_function_literal_parsing() {
+        let input = "fn(x, y) { x + y; }".to_owned();
+
+        let program = Parser::new(Lexer::new(input.to_owned()))
+            .parse_program()
+            .expect("Parse errors found");
+
+        assert_eq!(program.statements.len(), 1);
+
+        let expr = program.statements[0].pull_expr().expression.pull_function();
+
+        assert_eq!(expr.parameters.len(), 2);
+        assert_eq!(expr.parameters[0].value, "x");
+        assert_eq!(expr.parameters[1].value, "y");
+
+        assert_eq!(expr.body.statements.len(), 1);
+
+        let body_stmt = expr.body.statements[0].pull_expr();
+        test_infix_expression(
+            &body_stmt.expression,
+            &Expected::Ident("x"),
+            "+",
+            &Expected::Ident("y"),
+        );
+    }
+
+    #[test]
+    fn test_function_parameter_parsing() {
+        let cases = [
+            ("fn() {};", vec![]),
+            ("fn(x) {};", vec!["x"]),
+            ("fn(x, y, z) {}", vec!["x", "y", "z"]),
+        ];
+
+        for (input, params) in cases.iter() {
+            let program = Parser::new(Lexer::new((*input).to_owned()))
+                .parse_program()
+                .expect("Parse errors found");
+
+            let function = program.statements[0].pull_expr().expression.pull_function();
+            assert_eq!(function.parameters.len(), params.len());
+
+            for (actual, expected) in function.parameters.iter().zip(params.iter()) {
+                assert_eq!(&actual.value, expected);
+            }
         }
     }
 }

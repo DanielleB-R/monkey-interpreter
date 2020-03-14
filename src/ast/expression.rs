@@ -10,6 +10,7 @@ pub enum Expression {
     Prefix(PrefixExpression),
     Infix(InfixExpression),
     If(IfExpression),
+    Function(FunctionLiteral),
     Nil,
 }
 
@@ -22,6 +23,7 @@ impl Display for Expression {
             Self::Infix(expr) => write!(f, "{}", expr),
             Self::Boolean(expr) => write!(f, "{}", expr),
             Self::If(expr) => write!(f, "{}", expr),
+            Self::Function(expr) => write!(f, "{}", expr),
             Self::Nil => write!(f, ""),
         }
     }
@@ -36,6 +38,7 @@ impl Node for Expression {
             Self::Infix(expr) => expr.token(),
             Self::Boolean(expr) => expr.token(),
             Self::If(expr) => expr.token(),
+            Self::Function(expr) => expr.token(),
             Self::Nil => panic!(),
         }
     }
@@ -81,6 +84,12 @@ impl Expression {
         match self {
             Self::If(expr) => expr,
             _ => panic!("expected if expression"),
+        }
+    }
+    pub fn pull_function(&self) -> &FunctionLiteral {
+        match self {
+            Self::Function(expr) => expr,
+            _ => panic!("expected function expression"),
         }
     }
 }
@@ -190,6 +199,28 @@ impl Display for IfExpression {
 }
 
 impl Node for IfExpression {
+    fn token(&self) -> &Token {
+        &self.token
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionLiteral {
+    pub token: Token,
+    pub parameters: Vec<Identifier>,
+    pub body: BlockStatement,
+}
+
+impl Display for FunctionLiteral {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        let identifier_names: Vec<String> =
+            self.parameters.iter().map(Identifier::to_string).collect();
+
+        write!(f, "fn({}) {}", identifier_names.join(", "), self.body)
+    }
+}
+
+impl Node for FunctionLiteral {
     fn token(&self) -> &Token {
         &self.token
     }
