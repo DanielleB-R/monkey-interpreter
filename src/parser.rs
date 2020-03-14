@@ -375,6 +375,8 @@ return 993322;
             ("-15;", "-", Expected::Int(15)),
             ("!foobar;", "!", Expected::Ident("foobar")),
             ("-foobar;", "-", Expected::Ident("foobar")),
+            ("!true;", "!", Expected::Bool(true)),
+            ("!false;", "!", Expected::Bool(false)),
         ];
 
         for (input, operator, value) in cases.iter() {
@@ -466,6 +468,24 @@ return 993322;
                 "!=",
                 Expected::Ident("barfoo"),
             ),
+            (
+                "true == true",
+                Expected::Bool(true),
+                "==",
+                Expected::Bool(true),
+            ),
+            (
+                "true != false",
+                Expected::Bool(true),
+                "!=",
+                Expected::Bool(false),
+            ),
+            (
+                "false == false",
+                Expected::Bool(false),
+                "==",
+                Expected::Bool(false),
+            ),
         ];
 
         for (input, left, op, right) in cases.iter() {
@@ -500,6 +520,10 @@ return 993322;
                 "3 + 4 * 5 == 3 * 1 + 4 * 5",
                 "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
             ),
+            ("true", "true"),
+            ("false", "false"),
+            ("3 > 5 == false", "((3 > 5) == false)"),
+            ("3 < 5 == true", "((3 < 5) == true)"),
         ];
 
         for (input, output) in cases.iter() {
