@@ -126,16 +126,15 @@ impl Parser {
             return None;
         }
 
-        // TODO: We're skipping the expression for now
-        while !self.cur_token.is(TokenType::Semicolon) {
+        self.next_token();
+
+        let value = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token().is(TokenType::Semicolon) {
             self.next_token();
         }
 
-        Some(ast::LetStatement {
-            token,
-            name,
-            value: Expression::Nil,
-        })
+        Some(ast::LetStatement { token, name, value })
     }
 
     fn parse_return_statement(&mut self) -> Option<ast::ReturnStatement> {
@@ -143,14 +142,15 @@ impl Parser {
 
         self.next_token();
 
-        // TODO: We're skipping the expression for now
-        while !self.cur_token.is(TokenType::Semicolon) {
+        let return_value = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token().is(TokenType::Semicolon) {
             self.next_token();
         }
 
         Some(ast::ReturnStatement {
             token,
-            return_value: Expression::Nil,
+            return_value,
         })
     }
 
@@ -437,8 +437,8 @@ mod test {
     fn test_let_statements() {
         let input = "
 let x = 5;
-let y = 10;
-let foobar = 838383;
+let y = true;
+let foobar = y;
 "
         .to_owned();
 
@@ -448,10 +448,15 @@ let foobar = 838383;
 
         assert_eq!(program.statements.len(), 3);
 
-        let cases = [("x",), ("y",), ("foobar",)];
+        let cases = [
+            ("x", Expected::Int(5)),
+            ("y", Expected::Bool(true)),
+            ("foobar", Expected::Ident("y")),
+        ];
 
         for (case, stmt) in cases.iter().zip(program.statements.iter()) {
             test_let_statement(stmt, case.0);
+            case.1.test(&stmt.pull_let().value)
         }
     }
 
@@ -468,8 +473,8 @@ let foobar = 838383;
     fn test_return_statements() {
         let input = "
 return 5;
-return 10;
-return 993322;
+return true;
+return foobar;
 "
         .to_owned();
         let program = Parser::new(Lexer::new(input))
@@ -478,9 +483,16 @@ return 993322;
 
         assert_eq!(program.statements.len(), 3);
 
-        for stmt in program.statements.iter() {
+        let expected = [
+            Expected::Int(5),
+            Expected::Bool(true),
+            Expected::Ident("foobar"),
+        ];
+
+        for (stmt, value) in program.statements.iter().zip(expected.iter()) {
             let ret_stmt = stmt.pull_return();
             assert_eq!(ret_stmt.token_literal(), "return");
+            value.test(&ret_stmt.return_value);
         }
     }
 

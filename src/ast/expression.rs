@@ -12,7 +12,6 @@ pub enum Expression {
     If(IfExpression),
     Function(FunctionLiteral),
     Call(CallExpression),
-    Nil,
 }
 
 impl Display for Expression {
@@ -26,7 +25,6 @@ impl Display for Expression {
             Self::If(expr) => write!(f, "{}", expr),
             Self::Function(expr) => write!(f, "{}", expr),
             Self::Call(expr) => write!(f, "{}", expr),
-            Self::Nil => write!(f, ""),
         }
     }
 }
@@ -42,7 +40,6 @@ impl Node for Expression {
             Self::If(expr) => expr.token(),
             Self::Function(expr) => expr.token(),
             Self::Call(expr) => expr.token(),
-            Self::Nil => panic!(),
         }
     }
 }
