@@ -41,6 +41,50 @@ impl Node for Expression {
     }
 }
 
+impl Expression {
+    pub fn pull_prefix(&self) -> &PrefixExpression {
+        match self {
+            Self::Prefix(expr) => expr,
+            _ => panic!("expected prefix expression"),
+        }
+    }
+
+    pub fn pull_integer(&self) -> &IntegerLiteral {
+        match self {
+            Self::IntegerLiteral(expr) => expr,
+            _ => panic!("expected integer expression"),
+        }
+    }
+
+    pub fn pull_identifier(&self) -> &Identifier {
+        match self {
+            Self::Identifier(expr) => expr,
+            _ => panic!("expected identifier expression"),
+        }
+    }
+
+    pub fn pull_boolean(&self) -> &Boolean {
+        match self {
+            Self::Boolean(expr) => expr,
+            _ => panic!("expected boolean expression"),
+        }
+    }
+
+    pub fn pull_infix(&self) -> &InfixExpression {
+        match self {
+            Self::Infix(expr) => expr,
+            _ => panic!("expected infix expression"),
+        }
+    }
+
+    pub fn pull_if(&self) -> &IfExpression {
+        match self {
+            Self::If(expr) => expr,
+            _ => panic!("expected if expression"),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct IntegerLiteral {
     pub token: Token,

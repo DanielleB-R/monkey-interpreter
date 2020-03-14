@@ -373,13 +373,10 @@ let foobar = 838383;
     fn test_let_statement(stmt: &Statement, name: &str) {
         assert_eq!(stmt.token_literal(), "let");
 
-        match stmt {
-            Statement::Let(let_stmt) => {
-                assert_eq!(let_stmt.name.value, name);
-                assert_eq!(let_stmt.name.token_literal(), name);
-            }
-            _ => panic!(),
-        }
+        let let_stmt = stmt.pull_let();
+
+        assert_eq!(let_stmt.name.value, name);
+        assert_eq!(let_stmt.name.token_literal(), name);
     }
 
     #[test]
@@ -397,12 +394,8 @@ return 993322;
         assert_eq!(program.statements.len(), 3);
 
         for stmt in program.statements.iter() {
-            match stmt {
-                Statement::Return(ret_stmt) => {
-                    assert_eq!(ret_stmt.token_literal(), "return");
-                }
-                _ => panic!(),
-            }
+            let ret_stmt = stmt.pull_return();
+            assert_eq!(ret_stmt.token_literal(), "return");
         }
     }
 
@@ -416,10 +409,8 @@ return 993322;
 
         assert_eq!(program.statements.len(), 1);
 
-        match &program.statements[0] {
-            Statement::Expr(stmt) => test_identifier(&stmt.expression, "foobar"),
-            _ => panic!(),
-        }
+        let stmt = program.statements[0].pull_expr();
+        test_identifier(&stmt.expression, "foobar");
     }
 
     #[test]
@@ -432,10 +423,8 @@ return 993322;
 
         assert_eq!(program.statements.len(), 1);
 
-        match &program.statements[0] {
-            Statement::Expr(stmt) => test_integer_literal(&stmt.expression, 5),
-            _ => panic!(),
-        }
+        let stmt = program.statements[0].pull_expr();
+        test_integer_literal(&stmt.expression, 5);
     }
 
     #[test]
@@ -456,27 +445,16 @@ return 993322;
 
             assert_eq!(program.statements.len(), 1);
 
-            match &program.statements[0] {
-                Statement::Expr(stmt) => match &stmt.expression {
-                    Expression::Prefix(exp) => {
-                        assert_eq!(exp.operator, *operator);
-                        value.test(&exp.right);
-                    }
-                    _ => panic!(),
-                },
-                _ => panic!(),
-            }
+            let exp = program.statements[0].pull_expr().expression.pull_prefix();
+            assert_eq!(exp.operator, *operator);
+            value.test(&exp.right);
         }
     }
 
     fn test_integer_literal(expr: &ast::Expression, value: i64) {
-        match expr {
-            Expression::IntegerLiteral(literal) => {
-                assert_eq!(literal.value, value);
-                assert_eq!(literal.token_literal(), value.to_string());
-            }
-            _ => panic!(),
-        }
+        let literal = expr.pull_integer();
+        assert_eq!(literal.value, value);
+        assert_eq!(literal.token_literal(), value.to_string());
     }
 
     #[test]
@@ -565,10 +543,8 @@ return 993322;
 
             assert_eq!(program.statements.len(), 1);
 
-            match &program.statements[0] {
-                Statement::Expr(stmt) => test_infix_expression(&stmt.expression, left, op, right),
-                _ => panic!(),
-            }
+            let stmt = program.statements[0].pull_expr();
+            test_infix_expression(&stmt.expression, left, op, right);
         }
     }
 
@@ -624,21 +600,15 @@ return 993322;
 
             assert_eq!(program.statements.len(), 1);
 
-            match &program.statements[0] {
-                Statement::Expr(stmt) => expected.test(&stmt.expression),
-                _ => panic!(),
-            }
+            let stmt = program.statements[0].pull_expr();
+            expected.test(&stmt.expression);
         }
     }
 
     fn test_identifier(exp: &ast::Expression, value: &str) {
-        match exp {
-            Expression::Identifier(ident) => {
-                assert_eq!(ident.value, value);
-                assert_eq!(ident.token_literal(), value);
-            }
-            _ => panic!(),
-        }
+        let ident = exp.pull_identifier();
+        assert_eq!(ident.value, value);
+        assert_eq!(ident.token_literal(), value);
     }
 
     enum Expected<'a> {
@@ -658,13 +628,9 @@ return 993322;
     }
 
     fn test_boolean_literal(exp: &ast::Expression, value: bool) {
-        match exp {
-            Expression::Boolean(b) => {
-                assert_eq!(b.value, value);
-                assert_eq!(b.token_literal(), value.to_string());
-            }
-            _ => panic!(),
-        }
+        let b = exp.pull_boolean();
+        assert_eq!(b.value, value);
+        assert_eq!(b.token_literal(), value.to_string());
     }
 
     fn test_infix_expression(
@@ -673,10 +639,7 @@ return 993322;
         operator: &str,
         right: &Expected,
     ) {
-        let infix_exp = match exp {
-            Expression::Infix(ie) => ie,
-            _ => panic!(),
-        };
+        let infix_exp = exp.pull_infix();
 
         left.test(&infix_exp.left);
         assert_eq!(infix_exp.operator, operator);
@@ -692,29 +655,18 @@ return 993322;
             .expect("Parse errors found");
 
         assert_eq!(program.statements.len(), 1);
-        match &program.statements[0] {
-            Statement::Expr(stmt) => match &stmt.expression {
-                Expression::If(expr) => {
-                    test_infix_expression(
-                        &expr.condition,
-                        &Expected::Ident("x"),
-                        ">",
-                        &Expected::Ident("y"),
-                    );
+        let expr = program.statements[0].pull_expr().expression.pull_if();
+        test_infix_expression(
+            &expr.condition,
+            &Expected::Ident("x"),
+            ">",
+            &Expected::Ident("y"),
+        );
 
-                    assert_eq!(expr.consequence.statements.len(), 1);
-                    match &expr.consequence.statements[0] {
-                        Statement::Expr(stmt) => {
-                            test_identifier(&stmt.expression, "x");
-                        }
-                        _ => panic!(),
-                    }
-                    assert!(expr.alternative.is_none());
-                }
-                _ => panic!(),
-            },
-            _ => panic!(),
-        }
+        assert_eq!(expr.consequence.statements.len(), 1);
+        let stmt = expr.consequence.statements[0].pull_expr();
+        test_identifier(&stmt.expression, "x");
+        assert!(expr.alternative.is_none());
     }
 
     #[test]
@@ -726,39 +678,24 @@ return 993322;
             .expect("Parse errors found");
 
         assert_eq!(program.statements.len(), 1);
-        match &program.statements[0] {
-            Statement::Expr(stmt) => match &stmt.expression {
-                Expression::If(expr) => {
-                    test_infix_expression(
-                        &expr.condition,
-                        &Expected::Ident("x"),
-                        ">",
-                        &Expected::Ident("y"),
-                    );
+        let expr = program.statements[0].pull_expr().expression.pull_if();
+        test_infix_expression(
+            &expr.condition,
+            &Expected::Ident("x"),
+            ">",
+            &Expected::Ident("y"),
+        );
 
-                    assert_eq!(expr.consequence.statements.len(), 1);
-                    match &expr.consequence.statements[0] {
-                        Statement::Expr(stmt) => {
-                            test_identifier(&stmt.expression, "x");
-                        }
-                        _ => panic!(),
-                    }
+        assert_eq!(expr.consequence.statements.len(), 1);
+        let stmt = expr.consequence.statements[0].pull_expr();
+        test_identifier(&stmt.expression, "x");
 
-                    match &expr.alternative {
-                        Some(ast::BlockStatement { statements, .. }) => {
-                            assert_eq!(statements.len(), 1);
-                            match &statements[0] {
-                                Statement::Expr(stmt) => {
-                                    test_identifier(&stmt.expression, "y");
-                                }
-                                _ => panic!(),
-                            }
-                        }
-                        _ => panic!(),
-                    }
-                }
-                _ => panic!(),
-            },
+        match &expr.alternative {
+            Some(ast::BlockStatement { statements, .. }) => {
+                assert_eq!(statements.len(), 1);
+                let stmt = statements[0].pull_expr();
+                test_identifier(&stmt.expression, "y");
+            }
             _ => panic!(),
         }
     }
