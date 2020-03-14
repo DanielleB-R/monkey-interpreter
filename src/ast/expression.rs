@@ -1,4 +1,4 @@
-use super::{Identifier, Node};
+use super::{statement::BlockStatement, Identifier, Node};
 use crate::token::{Token, TokenType};
 use std::fmt::{Display, Formatter};
 
@@ -9,6 +9,7 @@ pub enum Expression {
     Boolean(Boolean),
     Prefix(PrefixExpression),
     Infix(InfixExpression),
+    If(IfExpression),
     Nil,
 }
 
@@ -20,6 +21,7 @@ impl Display for Expression {
             Self::Prefix(expr) => write!(f, "{}", expr),
             Self::Infix(expr) => write!(f, "{}", expr),
             Self::Boolean(expr) => write!(f, "{}", expr),
+            Self::If(expr) => write!(f, "{}", expr),
             Self::Nil => write!(f, ""),
         }
     }
@@ -33,6 +35,7 @@ impl Node for Expression {
             Self::Prefix(expr) => expr.token(),
             Self::Infix(expr) => expr.token(),
             Self::Boolean(expr) => expr.token(),
+            Self::If(expr) => expr.token(),
             Self::Nil => panic!(),
         }
     }
@@ -121,5 +124,29 @@ impl From<Token> for Boolean {
             _ => panic!("converting non-boolean token to boolean expr"),
         };
         Self { token, value }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct IfExpression {
+    pub token: Token,
+    pub condition: Box<Expression>,
+    pub consequence: BlockStatement,
+    pub alternative: Option<BlockStatement>,
+}
+
+impl Display for IfExpression {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "if{} {}", self.condition, self.consequence)?;
+        if let Some(alt) = &self.alternative {
+            write!(f, "else {}", alt)?;
+        }
+        Ok(())
+    }
+}
+
+impl Node for IfExpression {
+    fn token(&self) -> &Token {
+        &self.token
     }
 }

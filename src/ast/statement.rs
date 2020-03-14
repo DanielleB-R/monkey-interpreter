@@ -8,6 +8,7 @@ pub enum Statement {
     Let(LetStatement),
     Return(ReturnStatement),
     Expr(ExpressionStatement),
+    Block(BlockStatement),
 }
 
 impl Display for Statement {
@@ -16,6 +17,7 @@ impl Display for Statement {
             Self::Let(stmt) => write!(f, "{}", stmt),
             Self::Return(stmt) => write!(f, "{}", stmt),
             Self::Expr(stmt) => write!(f, "{}", stmt),
+            Self::Block(stmt) => write!(f, "{}", stmt),
         }
     }
 }
@@ -26,6 +28,7 @@ impl Node for Statement {
             Self::Let(stmt) => stmt.token(),
             Self::Return(stmt) => stmt.token(),
             Self::Expr(stmt) => stmt.token(),
+            Self::Block(stmt) => stmt.token(),
         }
     }
 }
@@ -86,6 +89,27 @@ impl Display for ExpressionStatement {
 }
 
 impl Node for ExpressionStatement {
+    fn token(&self) -> &Token {
+        &self.token
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BlockStatement {
+    pub token: Token,
+    pub statements: Vec<Statement>,
+}
+
+impl Display for BlockStatement {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        for stmt in self.statements.iter() {
+            write!(f, "{}", stmt)?;
+        }
+        Ok(())
+    }
+}
+
+impl Node for BlockStatement {
     fn token(&self) -> &Token {
         &self.token
     }

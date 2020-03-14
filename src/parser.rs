@@ -56,6 +56,7 @@ impl Parser {
         prefix_parse_fns.insert(TokenType::True, Self::parse_boolean);
         prefix_parse_fns.insert(TokenType::False, Self::parse_boolean);
         prefix_parse_fns.insert(TokenType::LParen, Self::parse_grouped_expression);
+        prefix_parse_fns.insert(TokenType::If, Self::parse_if_expression);
 
         let mut infix_parse_fns: HashMap<TokenType, InfixParseFn> = Default::default();
         infix_parse_fns.insert(TokenType::Plus, Self::parse_infix_expression);
@@ -283,6 +284,62 @@ impl Parser {
         } else {
             None
         }
+    }
+
+    fn parse_if_expression(&mut self) -> Option<ast::Expression> {
+        let token = self.cur_token.clone();
+
+        if !self.expect_peek(TokenType::LParen) {
+            return None;
+        }
+
+        self.next_token();
+        let condition = Box::new(self.parse_expression(Precedence::Lowest)?);
+
+        if !self.expect_peek(TokenType::RParen) {
+            return None;
+        }
+
+        if !self.expect_peek(TokenType::LBrace) {
+            return None;
+        }
+
+        let consequence = self.parse_block_statement();
+
+        let alternative = if self.peek_token().is(TokenType::Else) {
+            self.next_token();
+
+            if !self.expect_peek(TokenType::LBrace) {
+                return None;
+            }
+
+            Some(self.parse_block_statement())
+        } else {
+            None
+        };
+
+        Some(Expression::If(ast::IfExpression {
+            token,
+            condition,
+            consequence,
+            alternative,
+        }))
+    }
+
+    fn parse_block_statement(&mut self) -> ast::BlockStatement {
+        let token = self.cur_token.clone();
+        let mut statements = vec![];
+
+        self.next_token();
+
+        while !self.cur_token.is(TokenType::RBrace) && !self.cur_token.is(TokenType::Eof) {
+            if let Some(stmt) = self.parse_statement() {
+                statements.push(stmt);
+            }
+            self.next_token();
+        }
+
+        ast::BlockStatement { token, statements }
     }
 }
 
@@ -624,5 +681,85 @@ return 993322;
         left.test(&infix_exp.left);
         assert_eq!(infix_exp.operator, operator);
         right.test(&infix_exp.right);
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "if (x > y) { x }".to_owned();
+
+        let program = Parser::new(Lexer::new(input.to_owned()))
+            .parse_program()
+            .expect("Parse errors found");
+
+        assert_eq!(program.statements.len(), 1);
+        match &program.statements[0] {
+            Statement::Expr(stmt) => match &stmt.expression {
+                Expression::If(expr) => {
+                    test_infix_expression(
+                        &expr.condition,
+                        &Expected::Ident("x"),
+                        ">",
+                        &Expected::Ident("y"),
+                    );
+
+                    assert_eq!(expr.consequence.statements.len(), 1);
+                    match &expr.consequence.statements[0] {
+                        Statement::Expr(stmt) => {
+                            test_identifier(&stmt.expression, "x");
+                        }
+                        _ => panic!(),
+                    }
+                    assert!(expr.alternative.is_none());
+                }
+                _ => panic!(),
+            },
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = "if (x > y) { x } else { y }".to_owned();
+
+        let program = Parser::new(Lexer::new(input.to_owned()))
+            .parse_program()
+            .expect("Parse errors found");
+
+        assert_eq!(program.statements.len(), 1);
+        match &program.statements[0] {
+            Statement::Expr(stmt) => match &stmt.expression {
+                Expression::If(expr) => {
+                    test_infix_expression(
+                        &expr.condition,
+                        &Expected::Ident("x"),
+                        ">",
+                        &Expected::Ident("y"),
+                    );
+
+                    assert_eq!(expr.consequence.statements.len(), 1);
+                    match &expr.consequence.statements[0] {
+                        Statement::Expr(stmt) => {
+                            test_identifier(&stmt.expression, "x");
+                        }
+                        _ => panic!(),
+                    }
+
+                    match &expr.alternative {
+                        Some(ast::BlockStatement { statements, .. }) => {
+                            assert_eq!(statements.len(), 1);
+                            match &statements[0] {
+                                Statement::Expr(stmt) => {
+                                    test_identifier(&stmt.expression, "y");
+                                }
+                                _ => panic!(),
+                            }
+                        }
+                        _ => panic!(),
+                    }
+                }
+                _ => panic!(),
+            },
+            _ => panic!(),
+        }
     }
 }
