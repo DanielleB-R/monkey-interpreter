@@ -55,6 +55,7 @@ impl Parser {
         prefix_parse_fns.insert(TokenType::Minus, Self::parse_prefix_expression);
         prefix_parse_fns.insert(TokenType::True, Self::parse_boolean);
         prefix_parse_fns.insert(TokenType::False, Self::parse_boolean);
+        prefix_parse_fns.insert(TokenType::LParen, Self::parse_grouped_expression);
 
         let mut infix_parse_fns: HashMap<TokenType, InfixParseFn> = Default::default();
         infix_parse_fns.insert(TokenType::Plus, Self::parse_infix_expression);
@@ -270,6 +271,18 @@ impl Parser {
             operator,
             right,
         }))
+    }
+
+    fn parse_grouped_expression(&mut self) -> Option<ast::Expression> {
+        self.next_token();
+
+        let exp = self.parse_expression(Precedence::Lowest)?;
+
+        if self.expect_peek(TokenType::RParen) {
+            Some(exp)
+        } else {
+            None
+        }
     }
 }
 
@@ -524,6 +537,11 @@ return 993322;
             ("false", "false"),
             ("3 > 5 == false", "((3 > 5) == false)"),
             ("3 < 5 == true", "((3 < 5) == true)"),
+            ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
+            ("(5 + 5) * 2", "((5 + 5) * 2)"),
+            ("2 / (5 + 5)", "(2 / (5 + 5))"),
+            ("-(5 + 5)", "(-(5 + 5))"),
+            ("!(true == true)", "(!(true == true))"),
         ];
 
         for (input, output) in cases.iter() {
