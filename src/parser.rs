@@ -29,6 +29,7 @@ impl From<TokenType> for Precedence {
             TokenType::Minus => Self::Sum,
             TokenType::Slash => Self::Product,
             TokenType::Asterisk => Self::Product,
+            TokenType::LParen => Self::Call,
             _ => Self::Lowest,
         }
     }
@@ -68,6 +69,7 @@ impl Parser {
         infix_parse_fns.insert(TokenType::NotEq, Self::parse_infix_expression);
         infix_parse_fns.insert(TokenType::LT, Self::parse_infix_expression);
         infix_parse_fns.insert(TokenType::GT, Self::parse_infix_expression);
+        infix_parse_fns.insert(TokenType::LParen, Self::parse_call_expression);
 
         Self {
             lexer: lexer.peekable(),
@@ -388,6 +390,42 @@ impl Parser {
             None
         }
     }
+
+    fn parse_call_expression(&mut self, function: ast::Expression) -> Option<ast::Expression> {
+        let token = self.cur_token.clone();
+        let arguments = self.parse_call_arguments()?;
+
+        Some(Expression::Call(ast::CallExpression {
+            token,
+            function: Box::new(function),
+            arguments,
+        }))
+    }
+
+    fn parse_call_arguments(&mut self) -> Option<Vec<ast::Expression>> {
+        let mut args = Default::default();
+
+        if self.peek_token().is(TokenType::RParen) {
+            self.next_token();
+            return Some(args);
+        }
+
+        self.next_token();
+
+        args.push(self.parse_expression(Precedence::Lowest)?);
+
+        while self.peek_token().is(TokenType::Comma) {
+            self.next_token();
+            self.next_token();
+            args.push(self.parse_expression(Precedence::Lowest)?);
+        }
+
+        if self.expect_peek(TokenType::RParen) {
+            Some(args)
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]
@@ -622,6 +660,15 @@ return 993322;
             ("2 / (5 + 5)", "(2 / (5 + 5))"),
             ("-(5 + 5)", "(-(5 + 5))"),
             ("!(true == true)", "(!(true == true))"),
+            ("a + add(b * c) + d", "((a + add((b * c))) + d)"),
+            (
+                "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+                "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+            ),
+            (
+                "add(a + b + c * d / f + g)",
+                "add((((a + b) + ((c * d) / f)) + g))",
+            ),
         ];
 
         for (input, output) in cases.iter() {
@@ -794,5 +841,26 @@ return 993322;
                 assert_eq!(&actual.value, expected);
             }
         }
+    }
+
+    #[test]
+    fn test_call_expression_parsing() {
+        let input = "add(1, 2 * 3, 4 + 5);".to_owned();
+
+        let program = Parser::new(Lexer::new(input.to_owned()))
+            .parse_program()
+            .expect("Parse errors found");
+
+        assert_eq!(program.statements.len(), 1);
+
+        let exp = program.statements[0].pull_expr().expression.pull_call();
+
+        test_identifier(&exp.function, "add");
+
+        assert_eq!(exp.arguments.len(), 3);
+
+        test_integer_literal(&exp.arguments[0], 1);
+        test_infix_expression(&exp.arguments[1], &Expected::Int(2), "*", &Expected::Int(3));
+        test_infix_expression(&exp.arguments[2], &Expected::Int(4), "+", &Expected::Int(5));
     }
 }

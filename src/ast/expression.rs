@@ -11,6 +11,7 @@ pub enum Expression {
     Infix(InfixExpression),
     If(IfExpression),
     Function(FunctionLiteral),
+    Call(CallExpression),
     Nil,
 }
 
@@ -24,6 +25,7 @@ impl Display for Expression {
             Self::Boolean(expr) => write!(f, "{}", expr),
             Self::If(expr) => write!(f, "{}", expr),
             Self::Function(expr) => write!(f, "{}", expr),
+            Self::Call(expr) => write!(f, "{}", expr),
             Self::Nil => write!(f, ""),
         }
     }
@@ -39,6 +41,7 @@ impl Node for Expression {
             Self::Boolean(expr) => expr.token(),
             Self::If(expr) => expr.token(),
             Self::Function(expr) => expr.token(),
+            Self::Call(expr) => expr.token(),
             Self::Nil => panic!(),
         }
     }
@@ -86,10 +89,18 @@ impl Expression {
             _ => panic!("expected if expression"),
         }
     }
+
     pub fn pull_function(&self) -> &FunctionLiteral {
         match self {
             Self::Function(expr) => expr,
             _ => panic!("expected function expression"),
+        }
+    }
+
+    pub fn pull_call(&self) -> &CallExpression {
+        match self {
+            Self::Call(expr) => expr,
+            _ => panic!("expected call expression"),
         }
     }
 }
@@ -221,6 +232,28 @@ impl Display for FunctionLiteral {
 }
 
 impl Node for FunctionLiteral {
+    fn token(&self) -> &Token {
+        &self.token
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CallExpression {
+    pub token: Token,
+    pub function: Box<Expression>,
+    pub arguments: Vec<Expression>,
+}
+
+impl Display for CallExpression {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        let argument_names: Vec<String> =
+            self.arguments.iter().map(Expression::to_string).collect();
+
+        write!(f, "{}({})", self.function, argument_names.join(", "))
+    }
+}
+
+impl Node for CallExpression {
     fn token(&self) -> &Token {
         &self.token
     }
