@@ -1,4 +1,4 @@
-use crate::ast::{Expression, Statement};
+use crate::ast::{Expression, Operator, Statement};
 use crate::token::TokenType;
 use crate::{ast, lexer, token};
 use std::collections::HashMap;
@@ -248,7 +248,7 @@ impl Parser {
 
     fn parse_prefix_expression(&mut self) -> Option<ast::Expression> {
         let token = self.cur_token.clone();
-        let operator = token.literal.clone();
+        let operator: Operator = Operator::from(token.literal.as_ref());
 
         self.next_token();
 
@@ -263,7 +263,7 @@ impl Parser {
 
     fn parse_infix_expression(&mut self, left: ast::Expression) -> Option<ast::Expression> {
         let token = self.cur_token.clone();
-        let operator = token.literal.clone();
+        let operator = Operator::from(token.literal.as_ref());
 
         let precedence = self.cur_token.token_type.into();
         self.next_token();
@@ -526,12 +526,12 @@ return foobar;
     #[test]
     fn test_parsing_prefix_expressions() {
         let cases = [
-            ("!5;", "!", Expected::Int(5)),
-            ("-15;", "-", Expected::Int(15)),
-            ("!foobar;", "!", Expected::Ident("foobar")),
-            ("-foobar;", "-", Expected::Ident("foobar")),
-            ("!true;", "!", Expected::Bool(true)),
-            ("!false;", "!", Expected::Bool(false)),
+            ("!5;", Operator::Bang, Expected::Int(5)),
+            ("-15;", Operator::Minus, Expected::Int(15)),
+            ("!foobar;", Operator::Bang, Expected::Ident("foobar")),
+            ("-foobar;", Operator::Minus, Expected::Ident("foobar")),
+            ("!true;", Operator::Bang, Expected::Bool(true)),
+            ("!false;", Operator::Bang, Expected::Bool(false)),
         ];
 
         for (input, operator, value) in cases.iter() {
@@ -556,78 +556,98 @@ return foobar;
     #[test]
     fn test_parsing_infix_expressions() {
         let cases = [
-            ("5 + 5;", Expected::Int(5), "+", Expected::Int(5)),
-            ("5 - 5;", Expected::Int(5), "-", Expected::Int(5)),
-            ("5 * 5;", Expected::Int(5), "*", Expected::Int(5)),
-            ("5 / 5;", Expected::Int(5), "/", Expected::Int(5)),
-            ("5 > 5;", Expected::Int(5), ">", Expected::Int(5)),
-            ("5 < 5;", Expected::Int(5), "<", Expected::Int(5)),
-            ("5 == 5;", Expected::Int(5), "==", Expected::Int(5)),
-            ("5 != 5;", Expected::Int(5), "!=", Expected::Int(5)),
+            ("5 + 5;", Expected::Int(5), Operator::Plus, Expected::Int(5)),
+            (
+                "5 - 5;",
+                Expected::Int(5),
+                Operator::Minus,
+                Expected::Int(5),
+            ),
+            (
+                "5 * 5;",
+                Expected::Int(5),
+                Operator::Asterisk,
+                Expected::Int(5),
+            ),
+            (
+                "5 / 5;",
+                Expected::Int(5),
+                Operator::Slash,
+                Expected::Int(5),
+            ),
+            ("5 > 5;", Expected::Int(5), Operator::GT, Expected::Int(5)),
+            ("5 < 5;", Expected::Int(5), Operator::LT, Expected::Int(5)),
+            ("5 == 5;", Expected::Int(5), Operator::Eq, Expected::Int(5)),
+            (
+                "5 != 5;",
+                Expected::Int(5),
+                Operator::NotEq,
+                Expected::Int(5),
+            ),
             (
                 "foobar + barfoo;",
                 Expected::Ident("foobar"),
-                "+",
+                Operator::Plus,
                 Expected::Ident("barfoo"),
             ),
             (
                 "foobar - barfoo;",
                 Expected::Ident("foobar"),
-                "-",
+                Operator::Minus,
                 Expected::Ident("barfoo"),
             ),
             (
                 "foobar * barfoo;",
                 Expected::Ident("foobar"),
-                "*",
+                Operator::Asterisk,
                 Expected::Ident("barfoo"),
             ),
             (
                 "foobar / barfoo;",
                 Expected::Ident("foobar"),
-                "/",
+                Operator::Slash,
                 Expected::Ident("barfoo"),
             ),
             (
                 "foobar > barfoo;",
                 Expected::Ident("foobar"),
-                ">",
+                Operator::GT,
                 Expected::Ident("barfoo"),
             ),
             (
                 "foobar < barfoo;",
                 Expected::Ident("foobar"),
-                "<",
+                Operator::LT,
                 Expected::Ident("barfoo"),
             ),
             (
                 "foobar == barfoo;",
                 Expected::Ident("foobar"),
-                "==",
+                Operator::Eq,
                 Expected::Ident("barfoo"),
             ),
             (
                 "foobar != barfoo;",
                 Expected::Ident("foobar"),
-                "!=",
+                Operator::NotEq,
                 Expected::Ident("barfoo"),
             ),
             (
                 "true == true",
                 Expected::Bool(true),
-                "==",
+                Operator::Eq,
                 Expected::Bool(true),
             ),
             (
                 "true != false",
                 Expected::Bool(true),
-                "!=",
+                Operator::NotEq,
                 Expected::Bool(false),
             ),
             (
                 "false == false",
                 Expected::Bool(false),
-                "==",
+                Operator::Eq,
                 Expected::Bool(false),
             ),
         ];
@@ -640,7 +660,7 @@ return foobar;
             assert_eq!(program.statements.len(), 1);
 
             let stmt = program.statements[0].pull_expr();
-            test_infix_expression(&stmt.expression, left, op, right);
+            test_infix_expression(&stmt.expression, left, *op, right);
         }
     }
 
@@ -741,7 +761,7 @@ return foobar;
     fn test_infix_expression(
         exp: &ast::Expression,
         left: &Expected,
-        operator: &str,
+        operator: Operator,
         right: &Expected,
     ) {
         let infix_exp = exp.pull_infix();
@@ -764,7 +784,7 @@ return foobar;
         test_infix_expression(
             &expr.condition,
             &Expected::Ident("x"),
-            ">",
+            Operator::GT,
             &Expected::Ident("y"),
         );
 
@@ -787,7 +807,7 @@ return foobar;
         test_infix_expression(
             &expr.condition,
             &Expected::Ident("x"),
-            ">",
+            Operator::GT,
             &Expected::Ident("y"),
         );
 
@@ -827,7 +847,7 @@ return foobar;
         test_infix_expression(
             &body_stmt.expression,
             &Expected::Ident("x"),
-            "+",
+            Operator::Plus,
             &Expected::Ident("y"),
         );
     }
@@ -871,7 +891,17 @@ return foobar;
         assert_eq!(exp.arguments.len(), 3);
 
         test_integer_literal(&exp.arguments[0], 1);
-        test_infix_expression(&exp.arguments[1], &Expected::Int(2), "*", &Expected::Int(3));
-        test_infix_expression(&exp.arguments[2], &Expected::Int(4), "+", &Expected::Int(5));
+        test_infix_expression(
+            &exp.arguments[1],
+            &Expected::Int(2),
+            Operator::Asterisk,
+            &Expected::Int(3),
+        );
+        test_infix_expression(
+            &exp.arguments[2],
+            &Expected::Int(4),
+            Operator::Plus,
+            &Expected::Int(5),
+        );
     }
 }

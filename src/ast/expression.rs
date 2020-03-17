@@ -88,6 +88,56 @@ impl Expression {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Operator {
+    Bang,
+    Minus,
+    Plus,
+    Asterisk,
+    Slash,
+    LT,
+    GT,
+    Eq,
+    NotEq,
+}
+
+impl Display for Operator {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Bang => "!",
+                Self::Minus => "-",
+                Self::Plus => "+",
+                Self::Asterisk => "*",
+                Self::Slash => "/",
+                Self::LT => "<",
+                Self::GT => ">",
+                Self::Eq => "==",
+                Self::NotEq => "!=",
+            }
+        )
+    }
+}
+
+impl From<&str> for Operator {
+    fn from(input: &str) -> Self {
+        match input {
+            "!" => Self::Bang,
+            "-" => Self::Minus,
+            "+" => Self::Plus,
+            "*" => Self::Asterisk,
+            "/" => Self::Slash,
+            "<" => Self::LT,
+            ">" => Self::GT,
+            "==" => Self::Eq,
+            "!=" => Self::NotEq,
+            _ => panic!("invalid operator string"),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct IntegerLiteral {
     pub token: Token,
@@ -103,7 +153,7 @@ impl Display for IntegerLiteral {
 #[derive(Debug, Clone)]
 pub struct PrefixExpression {
     pub token: Token,
-    pub operator: String,
+    pub operator: Operator,
     pub right: Box<Expression>,
 }
 
@@ -117,7 +167,7 @@ impl Display for PrefixExpression {
 pub struct InfixExpression {
     pub token: Token,
     pub left: Box<Expression>,
-    pub operator: String,
+    pub operator: Operator,
     pub right: Box<Expression>,
 }
 

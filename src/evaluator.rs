@@ -26,13 +26,11 @@ fn eval_statements(statements: &[ast::Statement]) -> Object {
         .fold(Object::Null, |_, stmt| eval(stmt.clone().into()))
 }
 
-fn eval_prefix_expression(operator: String, right: Object) -> Object {
-    if operator == "!" {
-        eval_bang_operator(right)
-    } else if operator == "-" {
-        eval_prefix_minus_operator(right)
-    } else {
-        Object::Null
+fn eval_prefix_expression(operator: ast::Operator, right: Object) -> Object {
+    match operator {
+        ast::Operator::Bang => eval_bang_operator(right),
+        ast::Operator::Minus => eval_prefix_minus_operator(right),
+        _ => Object::Null,
     }
 }
 
@@ -60,7 +58,23 @@ mod test {
 
     #[test]
     fn test_eval_integer_expression() {
-        let cases = vec![("5", 5), ("10", 10), ("-5", -5), ("-10", -10)];
+        let cases = vec![
+            ("5", 5),
+            ("10", 10),
+            ("-5", -5),
+            ("-10", -10),
+            // ("5 + 5 + 5 + 5 - 10", 10),
+            // ("2 * 2 * 2 * 2 * 2", 32),
+            // ("-50 + 100 + -50", 0),
+            // ("5 * 2 + 10", 20),
+            // ("5 + 2 * 10", 25),
+            // ("20 + 2 * -10", 0),
+            // ("50 / 2 * 2 + 10", 60),
+            // ("2 * (5 + 10)", 30),
+            // ("3 * 3 * 3 + 10", 37),
+            // ("3 * (3 * 3) + 10", 37),
+            // ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
+        ];
 
         for (input, output) in cases.into_iter() {
             let evaluated = test_eval(input);
