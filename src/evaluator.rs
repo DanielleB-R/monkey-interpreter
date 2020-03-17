@@ -29,6 +29,8 @@ fn eval_statements(statements: &[ast::Statement]) -> Object {
 fn eval_prefix_expression(operator: String, right: Object) -> Object {
     if operator == "!" {
         eval_bang_operator(right)
+    } else if operator == "-" {
+        eval_prefix_minus_operator(right)
     } else {
         Object::Null
     }
@@ -43,6 +45,13 @@ fn eval_bang_operator(right: Object) -> Object {
     })
 }
 
+fn eval_prefix_minus_operator(right: Object) -> Object {
+    match right {
+        Object::Integer(n) => Object::Integer(-n),
+        _ => Object::Null,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -51,7 +60,7 @@ mod test {
 
     #[test]
     fn test_eval_integer_expression() {
-        let cases = vec![("5", 5), ("10", 10)];
+        let cases = vec![("5", 5), ("10", 10), ("-5", -5), ("-10", -10)];
 
         for (input, output) in cases.into_iter() {
             let evaluated = test_eval(input);
