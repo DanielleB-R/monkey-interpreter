@@ -13,6 +13,24 @@ pub enum Node {
     Expression(Expression),
 }
 
+impl From<Program> for Node {
+    fn from(program: Program) -> Self {
+        Self::Program(program)
+    }
+}
+
+impl From<Statement> for Node {
+    fn from(statement: Statement) -> Self {
+        Self::Statement(statement)
+    }
+}
+
+impl From<Expression> for Node {
+    fn from(expression: Expression) -> Self {
+        Self::Expression(expression)
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Program {
     pub statements: Vec<Statement>,

@@ -1,4 +1,4 @@
-use crate::ast::{Expression, Node, Statement};
+use crate::ast::{Expression, Statement};
 use crate::token::TokenType;
 use crate::{ast, lexer, token};
 use std::collections::HashMap;

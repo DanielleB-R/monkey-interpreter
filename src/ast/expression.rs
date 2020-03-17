@@ -1,4 +1,4 @@
-use super::{statement::BlockStatement, Identifier, Node};
+use super::{statement::BlockStatement, Identifier};
 use crate::token::{Token, TokenType};
 use std::fmt::{Display, Formatter};
 
