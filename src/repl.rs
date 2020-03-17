@@ -1,3 +1,4 @@
+use crate::evaluator;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use std::io::{self, Write};
@@ -19,7 +20,10 @@ pub fn start() {
                     println!("\t{}", err);
                 }
             }
-            Ok(program) => println!("{}", program),
+            Ok(program) => {
+                let output = evaluator::eval(program.into());
+                println!("{}", output);
+            }
         }
     }
 }
