@@ -3,9 +3,14 @@ use crate::object::Object;
 
 pub fn eval(node: Node) -> Object {
     match node {
-        Node::Program(prog) => eval_statements(&prog.statements),
+        Node::Program(prog) => eval_program(prog),
         Node::Statement(s) => match s {
             ast::Statement::Expr(stmt) => eval(stmt.expression.into()),
+            ast::Statement::Block(stmt) => eval_block_statement(stmt),
+            ast::Statement::Return(stmt) => {
+                let val = eval(stmt.return_value.into());
+                Object::ReturnValue(Box::new(val))
+            }
             _ => Object::Null,
         },
         Node::Expression(e) => match e {
@@ -20,15 +25,38 @@ pub fn eval(node: Node) -> Object {
                 let right = eval((*infix.right).into());
                 eval_infix_expression(infix.operator, left, right)
             }
+            ast::Expression::If(if_expression) => eval_if_expression(if_expression),
             _ => Object::Null,
         },
     }
 }
 
-fn eval_statements(statements: &[ast::Statement]) -> Object {
-    statements
-        .iter()
-        .fold(Object::Null, |_, stmt| eval(stmt.clone().into()))
+fn eval_program(program: ast::Program) -> Object {
+    let mut result = Object::Null;
+
+    for stmt in program.statements.into_iter() {
+        result = eval(stmt.into());
+
+        if let Object::ReturnValue(obj) = result {
+            return *obj;
+        }
+    }
+
+    result
+}
+
+fn eval_block_statement(block: ast::BlockStatement) -> Object {
+    let mut result = Object::Null;
+
+    for stmt in block.statements.into_iter() {
+        result = eval(stmt.into());
+
+        if result.is_return_value() {
+            return result;
+        }
+    }
+
+    result
 }
 
 fn eval_prefix_expression(operator: ast::Operator, right: Object) -> Object {
@@ -81,6 +109,22 @@ fn eval_integer_infix_expression(operator: ast::Operator, left: i64, right: i64)
         ast::Operator::NotEq => Object::Boolean(left != right),
         _ => Object::Null,
     }
+}
+
+fn eval_if_expression(if_expression: ast::IfExpression) -> Object {
+    let condition = eval((*if_expression.condition).into());
+
+    if is_truthy(condition) {
+        eval(ast::Statement::Block(if_expression.consequence).into())
+    } else if let Some(alt) = if_expression.alternative {
+        eval(ast::Statement::Block(alt).into())
+    } else {
+        Object::Null
+    }
+}
+
+fn is_truthy(obj: Object) -> bool {
+    obj != Object::Null && obj != Object::Boolean(false)
 }
 
 #[cfg(test)]
@@ -159,6 +203,49 @@ mod test {
         for (input, output) in cases.into_iter() {
             let evaluated = test_eval(input);
             test_boolean_object(&evaluated, output);
+        }
+    }
+
+    #[test]
+    fn test_if_else_expressions() {
+        let cases = vec![
+            ("if (true) { 10 }", Object::Integer(10)),
+            ("if (false) { 10 }", Object::Null),
+            ("if (1) { 10 }", Object::Integer(10)),
+            ("if (1 < 2) { 10 }", Object::Integer(10)),
+            ("if (1 > 2) { 10 }", Object::Null),
+            ("if (1 < 2) { 10 } else { 20 }", Object::Integer(10)),
+            ("if (1 > 2) { 10 } else { 20 }", Object::Integer(20)),
+        ];
+
+        for (input, output) in cases.into_iter() {
+            let evaluated = test_eval(input);
+            assert_eq!(evaluated, output);
+        }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let cases = vec![
+            ("return 10;", 10),
+            ("return 10; 9;", 10),
+            ("return 2 * 5; 9;", 10),
+            ("9; return 2 * 5; 9;", 10),
+            (
+                "if (10 > 1) {
+  if (10 > 1) {
+    return 10;
+  }
+
+  return 1;
+}",
+                10,
+            ),
+        ];
+
+        for (input, output) in cases.into_iter() {
+            let evaluated = test_eval(input);
+            test_integer_object(&evaluated, output);
         }
     }
 
