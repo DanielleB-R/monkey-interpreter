@@ -9,6 +9,9 @@ pub fn eval(node: Node) -> Object {
             ast::Statement::Block(stmt) => eval_block_statement(stmt),
             ast::Statement::Return(stmt) => {
                 let val = eval(stmt.return_value.into());
+                if val.is_error() {
+                    return val;
+                }
                 Object::ReturnValue(Box::new(val))
             }
             _ => Object::Null,
@@ -18,11 +21,20 @@ pub fn eval(node: Node) -> Object {
             ast::Expression::Boolean(b) => Object::Boolean(b.value),
             ast::Expression::Prefix(prefix) => {
                 let right = eval((*prefix.right).into());
+                if right.is_error() {
+                    return right;
+                }
                 eval_prefix_expression(prefix.operator, right)
             }
             ast::Expression::Infix(infix) => {
                 let left = eval((*infix.left).into());
+                if left.is_error() {
+                    return left;
+                }
                 let right = eval((*infix.right).into());
+                if right.is_error() {
+                    return right;
+                }
                 eval_infix_expression(infix.operator, left, right)
             }
             ast::Expression::If(if_expression) => eval_if_expression(if_expression),
@@ -40,6 +52,10 @@ fn eval_program(program: ast::Program) -> Object {
         if let Object::ReturnValue(obj) = result {
             return *obj;
         }
+
+        if result.is_error() {
+            return result;
+        }
     }
 
     result
@@ -51,7 +67,7 @@ fn eval_block_statement(block: ast::BlockStatement) -> Object {
     for stmt in block.statements.into_iter() {
         result = eval(stmt.into());
 
-        if result.is_return_value() {
+        if result.is_return_value() || result.is_error() {
             return result;
         }
     }
@@ -63,7 +79,11 @@ fn eval_prefix_expression(operator: ast::Operator, right: Object) -> Object {
     match operator {
         ast::Operator::Bang => eval_bang_operator(right),
         ast::Operator::Minus => eval_prefix_minus_operator(right),
-        _ => Object::Null,
+        _ => Object::Error(format!(
+            "unknown operator: {}{}",
+            operator,
+            right.type_name()
+        )),
     }
 }
 
@@ -71,13 +91,18 @@ fn eval_infix_expression(operator: ast::Operator, left: Object, right: Object) -
     match operator {
         ast::Operator::Eq => Object::Boolean(left == right),
         ast::Operator::NotEq => Object::Boolean(left != right),
-        op => {
-            if let (Object::Integer(x), Object::Integer(y)) = (left, right) {
-                eval_integer_infix_expression(op, x, y)
-            } else {
-                Object::Null
+        op => match (left, right) {
+            (Object::Integer(x), Object::Integer(y)) => eval_integer_infix_expression(op, x, y),
+            (Object::Boolean(_), Object::Boolean(_)) => {
+                Object::Error(format!("unknown operator: BOOLEAN {} BOOLEAN", op))
             }
-        }
+            (a, b) => Object::Error(format!(
+                "type mismatch: {} {} {}",
+                a.type_name(),
+                op,
+                b.type_name()
+            )),
+        },
     }
 }
 
@@ -93,7 +118,7 @@ fn eval_bang_operator(right: Object) -> Object {
 fn eval_prefix_minus_operator(right: Object) -> Object {
     match right {
         Object::Integer(n) => Object::Integer(-n),
-        _ => Object::Null,
+        a => Object::Error(format!("unknown operator: -{}", a.type_name())),
     }
 }
 
@@ -107,12 +132,15 @@ fn eval_integer_infix_expression(operator: ast::Operator, left: i64, right: i64)
         ast::Operator::GT => Object::Boolean(left > right),
         ast::Operator::Eq => Object::Boolean(left == right),
         ast::Operator::NotEq => Object::Boolean(left != right),
-        _ => Object::Null,
+        op => Object::Error(format!("unknown operator: INTEGER {} INTEGER", op)),
     }
 }
 
 fn eval_if_expression(if_expression: ast::IfExpression) -> Object {
     let condition = eval((*if_expression.condition).into());
+    if condition.is_error() {
+        return condition;
+    }
 
     if is_truthy(condition) {
         eval(ast::Statement::Block(if_expression.consequence).into())
@@ -246,6 +274,37 @@ mod test {
         for (input, output) in cases.into_iter() {
             let evaluated = test_eval(input);
             test_integer_object(&evaluated, output);
+        }
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let cases = vec![
+            ("5 + true;", "type mismatch: INTEGER + BOOLEAN"),
+            ("5 + true; 5;", "type mismatch: INTEGER + BOOLEAN"),
+            ("-true", "unknown operator: -BOOLEAN"),
+            ("true + false;", "unknown operator: BOOLEAN + BOOLEAN"),
+            ("5; true + false; 5", "unknown operator: BOOLEAN + BOOLEAN"),
+            (
+                "if (10 > 1) { true + false; }",
+                "unknown operator: BOOLEAN + BOOLEAN",
+            ),
+            (
+                "
+if (10 > 1) {
+  if (10 > 1) {
+    return true + false;
+  }
+
+  return 1;
+}",
+                "unknown operator: BOOLEAN + BOOLEAN",
+            ),
+        ];
+
+        for (input, err) in cases.into_iter() {
+            let evaluated = test_eval(input);
+            assert_eq!(evaluated, Object::Error(err.to_owned()));
         }
     }
 
