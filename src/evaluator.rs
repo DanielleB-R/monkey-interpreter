@@ -12,9 +12,9 @@ pub fn eval(node: Node) -> Object {
         },
         Node::Expression(e) => match e {
             ast::Expression::IntegerLiteral(l) => Object::Integer(l.value),
+            ast::Expression::Boolean(b) => Object::Boolean(b.value),
             _ => panic!(),
         },
-        _ => panic!(),
     }
 }
 
@@ -38,6 +38,16 @@ mod test {
         }
     }
 
+    #[test]
+    fn test_eval_boolean_expression() {
+        let cases = vec![("true", true), ("false", false)];
+
+        for (input, output) in cases.into_iter() {
+            let evaluated = test_eval(input);
+            test_boolean_object(&evaluated, output);
+        }
+    }
+
     fn test_eval(input: &str) -> Object {
         eval(
             Parser::new(Lexer::new(input.to_owned()))
@@ -50,6 +60,13 @@ mod test {
     fn test_integer_object(obj: &Object, expected: i64) {
         match obj {
             Object::Integer(n) => assert_eq!(*n, expected),
+            _ => panic!(),
+        }
+    }
+
+    fn test_boolean_object(obj: &Object, expected: bool) {
+        match obj {
+            Object::Boolean(b) => assert_eq!(*b, expected),
             _ => panic!(),
         }
     }
