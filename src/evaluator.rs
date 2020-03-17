@@ -15,6 +15,11 @@ pub fn eval(node: Node) -> Object {
                 let right = eval((*prefix.right).into());
                 eval_prefix_expression(prefix.operator, right)
             }
+            ast::Expression::Infix(infix) => {
+                let left = eval((*infix.left).into());
+                let right = eval((*infix.right).into());
+                eval_infix_expression(infix.operator, left, right)
+            }
             _ => Object::Null,
         },
     }
@@ -34,6 +39,20 @@ fn eval_prefix_expression(operator: ast::Operator, right: Object) -> Object {
     }
 }
 
+fn eval_infix_expression(operator: ast::Operator, left: Object, right: Object) -> Object {
+    match operator {
+        ast::Operator::Eq => Object::Boolean(left == right),
+        ast::Operator::NotEq => Object::Boolean(left != right),
+        op => {
+            if let (Object::Integer(x), Object::Integer(y)) = (left, right) {
+                eval_integer_infix_expression(op, x, y)
+            } else {
+                Object::Null
+            }
+        }
+    }
+}
+
 fn eval_bang_operator(right: Object) -> Object {
     Object::Boolean(match right {
         Object::Boolean(true) => (false),
@@ -46,6 +65,20 @@ fn eval_bang_operator(right: Object) -> Object {
 fn eval_prefix_minus_operator(right: Object) -> Object {
     match right {
         Object::Integer(n) => Object::Integer(-n),
+        _ => Object::Null,
+    }
+}
+
+fn eval_integer_infix_expression(operator: ast::Operator, left: i64, right: i64) -> Object {
+    match operator {
+        ast::Operator::Plus => Object::Integer(left + right),
+        ast::Operator::Minus => Object::Integer(left - right),
+        ast::Operator::Asterisk => Object::Integer(left * right),
+        ast::Operator::Slash => Object::Integer(left / right),
+        ast::Operator::LT => Object::Boolean(left < right),
+        ast::Operator::GT => Object::Boolean(left > right),
+        ast::Operator::Eq => Object::Boolean(left == right),
+        ast::Operator::NotEq => Object::Boolean(left != right),
         _ => Object::Null,
     }
 }
@@ -63,17 +96,17 @@ mod test {
             ("10", 10),
             ("-5", -5),
             ("-10", -10),
-            // ("5 + 5 + 5 + 5 - 10", 10),
-            // ("2 * 2 * 2 * 2 * 2", 32),
-            // ("-50 + 100 + -50", 0),
-            // ("5 * 2 + 10", 20),
-            // ("5 + 2 * 10", 25),
-            // ("20 + 2 * -10", 0),
-            // ("50 / 2 * 2 + 10", 60),
-            // ("2 * (5 + 10)", 30),
-            // ("3 * 3 * 3 + 10", 37),
-            // ("3 * (3 * 3) + 10", 37),
-            // ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
+            ("5 + 5 + 5 + 5 - 10", 10),
+            ("2 * 2 * 2 * 2 * 2", 32),
+            ("-50 + 100 + -50", 0),
+            ("5 * 2 + 10", 20),
+            ("5 + 2 * 10", 25),
+            ("20 + 2 * -10", 0),
+            ("50 / 2 * 2 + 10", 60),
+            ("2 * (5 + 10)", 30),
+            ("3 * 3 * 3 + 10", 37),
+            ("3 * (3 * 3) + 10", 37),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
         ];
 
         for (input, output) in cases.into_iter() {
@@ -84,7 +117,27 @@ mod test {
 
     #[test]
     fn test_eval_boolean_expression() {
-        let cases = vec![("true", true), ("false", false)];
+        let cases = vec![
+            ("true", true),
+            ("false", false),
+            ("1 < 2", true),
+            ("1 > 2", false),
+            ("1 < 1", false),
+            ("1 > 1", false),
+            ("1 == 1", true),
+            ("1 != 1", false),
+            ("1 == 2", false),
+            ("1 != 2", true),
+            ("true == true", true),
+            ("false == false", true),
+            ("true == false", false),
+            ("true != false", true),
+            ("false != true", true),
+            ("(1 < 2) == true", true),
+            ("(1 < 2) == false", false),
+            ("(1 > 2) == true", false),
+            ("(1 > 2) == false", true),
+        ];
 
         for (input, output) in cases.into_iter() {
             let evaluated = test_eval(input);
