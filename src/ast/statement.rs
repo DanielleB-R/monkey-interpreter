@@ -22,8 +22,6 @@ impl Display for Statement {
     }
 }
 
-impl Node for Statement {}
-
 #[cfg(test)]
 impl Statement {
     pub fn pull_let(&self) -> &LetStatement {
@@ -61,8 +59,6 @@ impl Display for LetStatement {
     }
 }
 
-impl Node for LetStatement {}
-
 #[derive(Debug, Clone)]
 pub struct ReturnStatement {
     pub token: Token,
@@ -75,8 +71,6 @@ impl Display for ReturnStatement {
     }
 }
 
-impl Node for ReturnStatement {}
-
 #[derive(Debug, Clone)]
 pub struct ExpressionStatement {
     pub token: Token,
@@ -88,8 +82,6 @@ impl Display for ExpressionStatement {
         write!(f, "{}", self.expression)
     }
 }
-
-impl Node for ExpressionStatement {}
 
 #[derive(Debug, Clone)]
 pub struct BlockStatement {
@@ -105,5 +97,3 @@ impl Display for BlockStatement {
         Ok(())
     }
 }
-
-impl Node for BlockStatement {}

@@ -6,7 +6,12 @@ pub use statement::*;
 use crate::token::Token;
 use std::fmt::{Display, Formatter};
 
-pub trait Node: Display {}
+#[derive(Debug, Clone)]
+pub enum Node {
+    Program(Program),
+    Statement(Statement),
+    Expression(Expression),
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct Program {
@@ -22,8 +27,6 @@ impl Display for Program {
     }
 }
 
-impl Node for Program {}
-
 #[derive(Debug, Clone)]
 pub struct Identifier {
     pub token: Token,
@@ -35,8 +38,6 @@ impl Display for Identifier {
         write!(f, "{}", self.value)
     }
 }
-
-impl Node for Identifier {}
 
 impl From<Token> for Identifier {
     fn from(token: Token) -> Self {

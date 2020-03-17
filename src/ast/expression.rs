@@ -29,8 +29,6 @@ impl Display for Expression {
     }
 }
 
-impl Node for Expression {}
-
 #[cfg(test)]
 impl Expression {
     pub fn pull_prefix(&self) -> &PrefixExpression {
@@ -102,8 +100,6 @@ impl Display for IntegerLiteral {
     }
 }
 
-impl Node for IntegerLiteral {}
-
 #[derive(Debug, Clone)]
 pub struct PrefixExpression {
     pub token: Token,
@@ -116,8 +112,6 @@ impl Display for PrefixExpression {
         write!(f, "({}{})", self.operator, self.right)
     }
 }
-
-impl Node for PrefixExpression {}
 
 #[derive(Debug, Clone)]
 pub struct InfixExpression {
@@ -133,8 +127,6 @@ impl Display for InfixExpression {
     }
 }
 
-impl Node for InfixExpression {}
-
 #[derive(Debug, Clone)]
 pub struct Boolean {
     pub token: Token,
@@ -146,8 +138,6 @@ impl Display for Boolean {
         write!(f, "{}", self.value)
     }
 }
-
-impl Node for Boolean {}
 
 impl From<Token> for Boolean {
     fn from(token: Token) -> Self {
@@ -178,8 +168,6 @@ impl Display for IfExpression {
     }
 }
 
-impl Node for IfExpression {}
-
 #[derive(Debug, Clone)]
 pub struct FunctionLiteral {
     pub token: Token,
@@ -196,8 +184,6 @@ impl Display for FunctionLiteral {
     }
 }
 
-impl Node for FunctionLiteral {}
-
 #[derive(Debug, Clone)]
 pub struct CallExpression {
     pub token: Token,
@@ -213,5 +199,3 @@ impl Display for CallExpression {
         write!(f, "{}({})", self.function, argument_names.join(", "))
     }
 }
-
-impl Node for CallExpression {}
