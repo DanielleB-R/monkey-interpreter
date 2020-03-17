@@ -29,21 +29,9 @@ impl Display for Expression {
     }
 }
 
-impl Node for Expression {
-    fn token(&self) -> &Token {
-        match self {
-            Self::Identifier(expr) => expr.token(),
-            Self::IntegerLiteral(expr) => expr.token(),
-            Self::Prefix(expr) => expr.token(),
-            Self::Infix(expr) => expr.token(),
-            Self::Boolean(expr) => expr.token(),
-            Self::If(expr) => expr.token(),
-            Self::Function(expr) => expr.token(),
-            Self::Call(expr) => expr.token(),
-        }
-    }
-}
+impl Node for Expression {}
 
+#[cfg(test)]
 impl Expression {
     pub fn pull_prefix(&self) -> &PrefixExpression {
         match self {
@@ -114,11 +102,7 @@ impl Display for IntegerLiteral {
     }
 }
 
-impl Node for IntegerLiteral {
-    fn token(&self) -> &Token {
-        &self.token
-    }
-}
+impl Node for IntegerLiteral {}
 
 #[derive(Debug, Clone)]
 pub struct PrefixExpression {
@@ -133,11 +117,7 @@ impl Display for PrefixExpression {
     }
 }
 
-impl Node for PrefixExpression {
-    fn token(&self) -> &Token {
-        &self.token
-    }
-}
+impl Node for PrefixExpression {}
 
 #[derive(Debug, Clone)]
 pub struct InfixExpression {
@@ -153,11 +133,7 @@ impl Display for InfixExpression {
     }
 }
 
-impl Node for InfixExpression {
-    fn token(&self) -> &Token {
-        &self.token
-    }
-}
+impl Node for InfixExpression {}
 
 #[derive(Debug, Clone)]
 pub struct Boolean {
@@ -171,11 +147,7 @@ impl Display for Boolean {
     }
 }
 
-impl Node for Boolean {
-    fn token(&self) -> &Token {
-        &self.token
-    }
-}
+impl Node for Boolean {}
 
 impl From<Token> for Boolean {
     fn from(token: Token) -> Self {
@@ -206,11 +178,7 @@ impl Display for IfExpression {
     }
 }
 
-impl Node for IfExpression {
-    fn token(&self) -> &Token {
-        &self.token
-    }
-}
+impl Node for IfExpression {}
 
 #[derive(Debug, Clone)]
 pub struct FunctionLiteral {
@@ -228,11 +196,7 @@ impl Display for FunctionLiteral {
     }
 }
 
-impl Node for FunctionLiteral {
-    fn token(&self) -> &Token {
-        &self.token
-    }
-}
+impl Node for FunctionLiteral {}
 
 #[derive(Debug, Clone)]
 pub struct CallExpression {
@@ -250,8 +214,4 @@ impl Display for CallExpression {
     }
 }
 
-impl Node for CallExpression {
-    fn token(&self) -> &Token {
-        &self.token
-    }
-}
+impl Node for CallExpression {}

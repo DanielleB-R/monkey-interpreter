@@ -461,12 +461,11 @@ let foobar = y;
     }
 
     fn test_let_statement(stmt: &Statement, name: &str) {
-        assert_eq!(stmt.token_literal(), "let");
-
         let let_stmt = stmt.pull_let();
 
+        assert_eq!(let_stmt.token.literal, "let");
         assert_eq!(let_stmt.name.value, name);
-        assert_eq!(let_stmt.name.token_literal(), name);
+        assert_eq!(let_stmt.name.token.literal, name);
     }
 
     #[test]
@@ -491,7 +490,7 @@ return foobar;
 
         for (stmt, value) in program.statements.iter().zip(expected.iter()) {
             let ret_stmt = stmt.pull_return();
-            assert_eq!(ret_stmt.token_literal(), "return");
+            assert_eq!(ret_stmt.token.literal, "return");
             value.test(&ret_stmt.return_value);
         }
     }
@@ -551,7 +550,7 @@ return foobar;
     fn test_integer_literal(expr: &ast::Expression, value: i64) {
         let literal = expr.pull_integer();
         assert_eq!(literal.value, value);
-        assert_eq!(literal.token_literal(), value.to_string());
+        assert_eq!(literal.token.literal, value.to_string());
     }
 
     #[test]
@@ -714,7 +713,7 @@ return foobar;
     fn test_identifier(exp: &ast::Expression, value: &str) {
         let ident = exp.pull_identifier();
         assert_eq!(ident.value, value);
-        assert_eq!(ident.token_literal(), value);
+        assert_eq!(ident.token.literal, value);
     }
 
     enum Expected<'a> {
@@ -736,7 +735,7 @@ return foobar;
     fn test_boolean_literal(exp: &ast::Expression, value: bool) {
         let b = exp.pull_boolean();
         assert_eq!(b.value, value);
-        assert_eq!(b.token_literal(), value.to_string());
+        assert_eq!(b.token.literal, value.to_string());
     }
 
     fn test_infix_expression(

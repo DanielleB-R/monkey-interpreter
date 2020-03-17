@@ -22,17 +22,9 @@ impl Display for Statement {
     }
 }
 
-impl Node for Statement {
-    fn token(&self) -> &Token {
-        match self {
-            Self::Let(stmt) => stmt.token(),
-            Self::Return(stmt) => stmt.token(),
-            Self::Expr(stmt) => stmt.token(),
-            Self::Block(stmt) => stmt.token(),
-        }
-    }
-}
+impl Node for Statement {}
 
+#[cfg(test)]
 impl Statement {
     pub fn pull_let(&self) -> &LetStatement {
         match self {
@@ -65,21 +57,11 @@ pub struct LetStatement {
 
 impl Display for LetStatement {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{} {} = {};",
-            self.token_literal(),
-            self.name,
-            self.value
-        )
+        write!(f, "{} {} = {};", self.token.literal, self.name, self.value)
     }
 }
 
-impl Node for LetStatement {
-    fn token(&self) -> &Token {
-        &self.token
-    }
-}
+impl Node for LetStatement {}
 
 #[derive(Debug, Clone)]
 pub struct ReturnStatement {
@@ -89,15 +71,11 @@ pub struct ReturnStatement {
 
 impl Display for ReturnStatement {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{} {};", self.token_literal(), self.return_value)
+        write!(f, "{} {};", self.token.literal, self.return_value)
     }
 }
 
-impl Node for ReturnStatement {
-    fn token(&self) -> &Token {
-        &self.token
-    }
-}
+impl Node for ReturnStatement {}
 
 #[derive(Debug, Clone)]
 pub struct ExpressionStatement {
@@ -111,11 +89,7 @@ impl Display for ExpressionStatement {
     }
 }
 
-impl Node for ExpressionStatement {
-    fn token(&self) -> &Token {
-        &self.token
-    }
-}
+impl Node for ExpressionStatement {}
 
 #[derive(Debug, Clone)]
 pub struct BlockStatement {
@@ -132,8 +106,4 @@ impl Display for BlockStatement {
     }
 }
 
-impl Node for BlockStatement {
-    fn token(&self) -> &Token {
-        &self.token
-    }
-}
+impl Node for BlockStatement {}

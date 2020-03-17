@@ -6,12 +6,7 @@ pub use statement::*;
 use crate::token::Token;
 use std::fmt::{Display, Formatter};
 
-pub trait Node: Display {
-    fn token(&self) -> &Token;
-    fn token_literal(&self) -> &str {
-        &self.token().literal
-    }
-}
+pub trait Node: Display {}
 
 #[derive(Debug, Clone, Default)]
 pub struct Program {
@@ -27,18 +22,7 @@ impl Display for Program {
     }
 }
 
-impl Node for Program {
-    fn token(&self) -> &Token {
-        self.statements.get(0).unwrap().token()
-    }
-
-    fn token_literal(&self) -> &str {
-        self.statements
-            .get(0)
-            .map(|s| s.token_literal())
-            .unwrap_or("")
-    }
-}
+impl Node for Program {}
 
 #[derive(Debug, Clone)]
 pub struct Identifier {
@@ -52,11 +36,7 @@ impl Display for Identifier {
     }
 }
 
-impl Node for Identifier {
-    fn token(&self) -> &Token {
-        &self.token
-    }
-}
+impl Node for Identifier {}
 
 impl From<Token> for Identifier {
     fn from(token: Token) -> Self {

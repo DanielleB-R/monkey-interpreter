@@ -1,6 +1,5 @@
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use crate::token::TokenType;
 use std::io::{self, Write};
 
 static PROMPT: &str = ">> ";
