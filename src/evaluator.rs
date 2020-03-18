@@ -1,7 +1,18 @@
 use crate::ast::{self, Node};
 use crate::environment::Environment;
-use crate::object::EvalError;
 use crate::object::{FunctionObject, Object};
+use custom_error::custom_error;
+
+custom_error! {
+    #[derive(Clone, PartialEq)]
+    pub EvalError
+
+    IdentifierNotFound{id: String} = "identifier not found: {id}",
+    UnknownPrefixOperator{operator: ast::Operator, operand: &'static str} = "unknown operator: {operator}{operand}",
+    UnknownInfixOperator{left: &'static str, operator: ast::Operator, right: &'static str} = "unknown operator: {left} {operator} {right}",
+    TypeMismatch{left: &'static str, operator: ast::Operator, right: &'static str} = "type mismatch: {left} {operator} {right}",
+    NotAFunction{type_name: &'static str} = "not a function: {type_name}",
+}
 
 type Result<T> = std::result::Result<T, EvalError>;
 
@@ -13,16 +24,10 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
             ast::Statement::Block(stmt) => eval_block_statement(stmt, env),
             ast::Statement::Return(stmt) => {
                 let val = eval(stmt.return_value.into(), env)?;
-                if let Object::Error(err) = val {
-                    return Err(err);
-                }
                 Ok(Object::ReturnValue(Box::new(val)))
             }
             ast::Statement::Let(stmt) => {
                 let val = eval(stmt.value.into(), env)?;
-                if let Object::Error(err) = val {
-                    return Err(err);
-                }
                 env.set(&stmt.name.value, val);
 
                 Ok(Object::Null)
@@ -33,29 +38,19 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
             ast::Expression::Boolean(b) => Ok(Object::Boolean(b.value)),
             ast::Expression::Prefix(prefix) => {
                 let right = eval((*prefix.right).into(), env)?;
-                if let Object::Error(err) = right {
-                    return Err(err);
-                }
-                Ok(eval_prefix_expression(prefix.operator, right))
+                eval_prefix_expression(prefix.operator, right)
             }
             ast::Expression::Infix(infix) => {
                 let left = eval((*infix.left).into(), env)?;
-                if let Object::Error(err) = left {
-                    return Err(err);
-                }
                 let right = eval((*infix.right).into(), env)?;
-                if let Object::Error(err) = right {
-                    return Err(err);
-                }
-                Ok(eval_infix_expression(infix.operator, left, right))
+                eval_infix_expression(infix.operator, left, right)
             }
             ast::Expression::If(if_expression) => eval_if_expression(if_expression, env),
             ast::Expression::Identifier(identifier) => {
-                Ok(env.get(&identifier.value).unwrap_or_else(|| {
-                    Object::Error(EvalError::IdentifierNotFound {
+                env.get(&identifier.value)
+                    .ok_or_else(|| EvalError::IdentifierNotFound {
                         id: identifier.value.clone(),
                     })
-                }))
             }
             ast::Expression::Function(fn_literal) => Ok(Object::Function(FunctionObject {
                 parameters: fn_literal.parameters,
@@ -64,16 +59,9 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
             })),
             ast::Expression::Call(call) => {
                 let function = eval((*call.function).into(), env)?;
-                if let Object::Error(err) = function {
-                    return Err(err);
-                }
 
                 let args = eval_expressions(call.arguments, env)?;
-                Ok(if args.len() == 1 && args[0].is_error() {
-                    args.into_iter().next().unwrap()
-                } else {
-                    apply_function(function, args)?
-                })
+                apply_function(function, args)
             }
         },
     }
@@ -88,10 +76,6 @@ fn eval_program(program: ast::Program, env: &mut Environment) -> Result<Object> 
         if let Object::ReturnValue(obj) = result {
             return Ok(*obj);
         }
-
-        if let Object::Error(err) = result {
-            return Err(err);
-        }
     }
 
     Ok(result)
@@ -102,10 +86,6 @@ fn eval_block_statement(block: ast::BlockStatement, env: &mut Environment) -> Re
 
     for stmt in block.statements.into_iter() {
         result = eval(stmt.into(), env)?;
-
-        if let Object::Error(err) = result {
-            return Err(err);
-        }
 
         if result.is_return_value() {
             return Ok(result);
@@ -120,39 +100,34 @@ fn eval_expressions(exprs: Vec<ast::Expression>, env: &mut Environment) -> Resul
 
     for expr in exprs.into_iter() {
         let evaluated = eval(expr.into(), env)?;
-        if let Object::Error(err) = evaluated {
-            return Err(err);
-        }
         result.push(evaluated)
     }
     Ok(result)
 }
 
-fn eval_prefix_expression(operator: ast::Operator, right: Object) -> Object {
+fn eval_prefix_expression(operator: ast::Operator, right: Object) -> Result<Object> {
     match operator {
-        ast::Operator::Bang => eval_bang_operator(right),
+        ast::Operator::Bang => Ok(eval_bang_operator(right)),
         ast::Operator::Minus => eval_prefix_minus_operator(right),
-        _ => Object::Error(EvalError::UnknownPrefixOperator {
+        _ => Err(EvalError::UnknownPrefixOperator {
             operator,
             operand: right.type_name(),
         }),
     }
 }
 
-fn eval_infix_expression(operator: ast::Operator, left: Object, right: Object) -> Object {
+fn eval_infix_expression(operator: ast::Operator, left: Object, right: Object) -> Result<Object> {
     match operator {
-        ast::Operator::Eq => Object::Boolean(left == right),
-        ast::Operator::NotEq => Object::Boolean(left != right),
+        ast::Operator::Eq => Ok(Object::Boolean(left == right)),
+        ast::Operator::NotEq => Ok(Object::Boolean(left != right)),
         op => match (left, right) {
             (Object::Integer(x), Object::Integer(y)) => eval_integer_infix_expression(op, x, y),
-            (Object::Boolean(_), Object::Boolean(_)) => {
-                Object::Error(EvalError::UnknownInfixOperator {
-                    left: "BOOLEAN",
-                    operator: op,
-                    right: "BOOLEAN",
-                })
-            }
-            (a, b) => Object::Error(EvalError::TypeMismatch {
+            (Object::Boolean(_), Object::Boolean(_)) => Err(EvalError::UnknownInfixOperator {
+                left: "BOOLEAN",
+                operator: op,
+                right: "BOOLEAN",
+            }),
+            (a, b) => Err(EvalError::TypeMismatch {
                 left: a.type_name(),
                 operator: op,
                 right: b.type_name(),
@@ -170,27 +145,27 @@ fn eval_bang_operator(right: Object) -> Object {
     })
 }
 
-fn eval_prefix_minus_operator(right: Object) -> Object {
+fn eval_prefix_minus_operator(right: Object) -> Result<Object> {
     match right {
-        Object::Integer(n) => Object::Integer(-n),
-        a => Object::Error(EvalError::UnknownPrefixOperator {
+        Object::Integer(n) => Ok(Object::Integer(-n)),
+        a => Err(EvalError::UnknownPrefixOperator {
             operator: ast::Operator::Minus,
             operand: a.type_name(),
         }),
     }
 }
 
-fn eval_integer_infix_expression(operator: ast::Operator, left: i64, right: i64) -> Object {
+fn eval_integer_infix_expression(operator: ast::Operator, left: i64, right: i64) -> Result<Object> {
     match operator {
-        ast::Operator::Plus => Object::Integer(left + right),
-        ast::Operator::Minus => Object::Integer(left - right),
-        ast::Operator::Asterisk => Object::Integer(left * right),
-        ast::Operator::Slash => Object::Integer(left / right),
-        ast::Operator::LT => Object::Boolean(left < right),
-        ast::Operator::GT => Object::Boolean(left > right),
-        ast::Operator::Eq => Object::Boolean(left == right),
-        ast::Operator::NotEq => Object::Boolean(left != right),
-        op => Object::Error(EvalError::UnknownInfixOperator {
+        ast::Operator::Plus => Ok(Object::Integer(left + right)),
+        ast::Operator::Minus => Ok(Object::Integer(left - right)),
+        ast::Operator::Asterisk => Ok(Object::Integer(left * right)),
+        ast::Operator::Slash => Ok(Object::Integer(left / right)),
+        ast::Operator::LT => Ok(Object::Boolean(left < right)),
+        ast::Operator::GT => Ok(Object::Boolean(left > right)),
+        ast::Operator::Eq => Ok(Object::Boolean(left == right)),
+        ast::Operator::NotEq => Ok(Object::Boolean(left != right)),
+        op => Err(EvalError::UnknownInfixOperator {
             left: "INTEGER",
             operator: op,
             right: "INTEGER",
@@ -200,9 +175,6 @@ fn eval_integer_infix_expression(operator: ast::Operator, left: i64, right: i64)
 
 fn eval_if_expression(if_expression: ast::IfExpression, env: &mut Environment) -> Result<Object> {
     let condition = eval((*if_expression.condition).into(), env)?;
-    if let Object::Error(err) = condition {
-        return Err(err);
-    }
 
     if is_truthy(condition) {
         eval(ast::Statement::Block(if_expression.consequence).into(), env)
@@ -221,9 +193,9 @@ fn apply_function(func: Object, args: Vec<Object>) -> Result<Object> {
     let function = match func {
         Object::Function(f) => f,
         obj => {
-            return Ok(Object::Error(EvalError::NotAFunction {
+            return Err(EvalError::NotAFunction {
                 type_name: obj.type_name(),
-            }))
+            })
         }
     };
 
@@ -272,8 +244,7 @@ mod test {
         ];
 
         for (input, output) in cases.into_iter() {
-            let evaluated = test_eval(input);
-            test_integer_object(&evaluated, output);
+            test_integer_object(&test_eval(input).unwrap(), output);
         }
     }
 
@@ -302,8 +273,7 @@ mod test {
         ];
 
         for (input, output) in cases.into_iter() {
-            let evaluated = test_eval(input);
-            test_boolean_object(&evaluated, output);
+            test_boolean_object(&test_eval(input).unwrap(), output);
         }
     }
 
@@ -319,8 +289,7 @@ mod test {
         ];
 
         for (input, output) in cases.into_iter() {
-            let evaluated = test_eval(input);
-            test_boolean_object(&evaluated, output);
+            test_boolean_object(&test_eval(input).unwrap(), output);
         }
     }
 
@@ -337,8 +306,7 @@ mod test {
         ];
 
         for (input, output) in cases.into_iter() {
-            let evaluated = test_eval(input);
-            assert_eq!(evaluated, output);
+            assert_eq!(test_eval(input).unwrap(), output);
         }
     }
 
@@ -362,8 +330,7 @@ mod test {
         ];
 
         for (input, output) in cases.into_iter() {
-            let evaluated = test_eval(input);
-            test_integer_object(&evaluated, output);
+            test_integer_object(&test_eval(input).unwrap(), output);
         }
     }
 
@@ -441,8 +408,7 @@ if (10 > 1) {
         ];
 
         for (input, err) in cases.into_iter() {
-            let evaluated = test_eval(input);
-            assert_eq!(evaluated, Object::Error(err));
+            assert_eq!(test_eval(input).unwrap_err(), err);
         }
     }
 
@@ -456,8 +422,7 @@ if (10 > 1) {
         ];
 
         for (input, val) in cases.into_iter() {
-            let evaluated = test_eval(input);
-            test_integer_object(&evaluated, val);
+            test_integer_object(&test_eval(input).unwrap(), val);
         }
     }
 
@@ -465,11 +430,9 @@ if (10 > 1) {
     fn test_function_object() {
         let input = "fn(x) { x + 2; }";
 
-        let evaluated = test_eval(input);
-
-        let fn_obj = match evaluated {
+        let fn_obj = match test_eval(input).unwrap() {
             Object::Function(f) => f,
-            _ => panic!(),
+            _ => panic!("not a function"),
         };
 
         assert_eq!(fn_obj.parameters.len(), 1);
@@ -489,8 +452,7 @@ if (10 > 1) {
         ];
 
         for (input, output) in cases.into_iter() {
-            let evaluated = test_eval(input);
-            test_integer_object(&evaluated, output);
+            test_integer_object(&test_eval(input).unwrap(), output);
         }
     }
 
@@ -505,10 +467,10 @@ let addTwo = newAdder(2);
 addTwo(2);
 ";
 
-        test_integer_object(&test_eval(input), 4);
+        test_integer_object(&test_eval(input).unwrap(), 4);
     }
 
-    fn test_eval(input: &str) -> Object {
+    fn test_eval(input: &str) -> Result<Object> {
         let mut env = Environment::new();
         eval(
             Parser::new(Lexer::new(input.to_owned()))
@@ -517,7 +479,6 @@ addTwo(2);
                 .into(),
             &mut env,
         )
-        .unwrap()
     }
 
     fn test_integer_object(obj: &Object, expected: i64) {
