@@ -45,7 +45,7 @@ impl Display for Program {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Identifier {
     pub token: Token,
     pub value: String,

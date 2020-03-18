@@ -1,6 +1,6 @@
 use crate::ast::{self, Node};
 use crate::environment::Environment;
-use crate::object::Object;
+use crate::object::{FunctionObject, Object};
 
 pub fn eval(node: Node, env: &mut Environment) -> Object {
     match node {
@@ -52,7 +52,24 @@ pub fn eval(node: Node, env: &mut Environment) -> Object {
                     Object::Error(format!("identifier not found: {}", identifier.value))
                 })
             }
-            _ => Object::Null,
+            ast::Expression::Function(fn_literal) => Object::Function(FunctionObject {
+                parameters: fn_literal.parameters,
+                body: fn_literal.body,
+                env: env.clone(),
+            }),
+            ast::Expression::Call(call) => {
+                let function = eval((*call.function).into(), env);
+                if function.is_error() {
+                    return function;
+                }
+
+                let args = eval_expressions(call.arguments, env);
+                if args.len() == 1 && args[0].is_error() {
+                    args.into_iter().next().unwrap()
+                } else {
+                    apply_function(function, args)
+                }
+            }
         },
     }
 }
@@ -86,6 +103,19 @@ fn eval_block_statement(block: ast::BlockStatement, env: &mut Environment) -> Ob
         }
     }
 
+    result
+}
+
+fn eval_expressions(exprs: Vec<ast::Expression>, env: &mut Environment) -> Vec<Object> {
+    let mut result = vec![];
+
+    for expr in exprs.into_iter() {
+        let evaluated = eval(expr.into(), env);
+        if evaluated.is_error() {
+            return vec![evaluated];
+        }
+        result.push(evaluated)
+    }
     result
 }
 
@@ -167,6 +197,30 @@ fn eval_if_expression(if_expression: ast::IfExpression, env: &mut Environment) -
 
 fn is_truthy(obj: Object) -> bool {
     obj != Object::Null && obj != Object::Boolean(false)
+}
+
+fn apply_function(func: Object, args: Vec<Object>) -> Object {
+    let function = match func {
+        Object::Function(f) => f,
+        obj => return Object::Error(format!("not a function: {}", obj.type_name())),
+    };
+
+    let mut env = extend_function_env(&function, args);
+
+    match eval(ast::Statement::Block(function.body).into(), &mut env) {
+        Object::ReturnValue(o) => *o,
+        obj => obj,
+    }
+}
+
+fn extend_function_env(func: &FunctionObject, args: Vec<Object>) -> Environment {
+    let mut env = Environment::with_enclosed(&func.env);
+
+    for (param, arg) in func.parameters.iter().zip(args.into_iter()) {
+        env.set(&param.value, arg);
+    }
+
+    env
 }
 
 #[cfg(test)]
@@ -336,6 +390,53 @@ if (10 > 1) {
             let evaluated = test_eval(input);
             test_integer_object(&evaluated, val);
         }
+    }
+
+    #[test]
+    fn test_function_object() {
+        let input = "fn(x) { x + 2; }";
+
+        let evaluated = test_eval(input);
+
+        let fn_obj = match evaluated {
+            Object::Function(f) => f,
+            _ => panic!(),
+        };
+
+        assert_eq!(fn_obj.parameters.len(), 1);
+        assert_eq!(fn_obj.parameters[0].to_string(), "x");
+        assert_eq!(fn_obj.body.to_string(), "(x + 2)");
+    }
+
+    #[test]
+    fn test_function_application() {
+        let cases = vec![
+            ("let identity = fn(x) { x; }; identity(5);", 5),
+            ("let identity = fn(x) { return x; }; identity(5);", 5),
+            ("let double = fn(x) { x * 2; }; double(5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5, 5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20),
+            ("fn(x) { x; }5;", 5),
+        ];
+
+        for (input, output) in cases.into_iter() {
+            let evaluated = test_eval(input);
+            test_integer_object(&evaluated, output);
+        }
+    }
+
+    #[test]
+    fn test_closures() {
+        let input = "
+let newAdder = fn(x) {
+  fn(y) { x + y; };
+};
+
+let addTwo = newAdder(2);
+addTwo(2);
+";
+
+        test_integer_object(&test_eval(input), 4);
     }
 
     fn test_eval(input: &str) -> Object {
