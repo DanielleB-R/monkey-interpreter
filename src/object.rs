@@ -23,11 +23,24 @@ impl Display for Object {
     }
 }
 
+impl Default for Object {
+    fn default() -> Self {
+        Self::Null
+    }
+}
+
 impl Object {
     pub fn is_return_value(&self) -> bool {
         match self {
             Self::ReturnValue(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn unwrap_return(self) -> Self {
+        match self {
+            Self::ReturnValue(o) => *o,
+            obj => obj,
         }
     }
 

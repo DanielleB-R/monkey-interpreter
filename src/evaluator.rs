@@ -22,10 +22,10 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
         Node::Statement(s) => match s {
             ast::Statement::Expr(stmt) => eval(stmt.expression.into(), env),
             ast::Statement::Block(stmt) => eval_block_statement(stmt, env),
-            ast::Statement::Return(stmt) => {
-                let val = eval(stmt.return_value.into(), env)?;
-                Ok(Object::ReturnValue(Box::new(val)))
-            }
+            ast::Statement::Return(stmt) => Ok(Object::ReturnValue(Box::new(eval(
+                stmt.return_value.into(),
+                env,
+            )?))),
             ast::Statement::Let(stmt) => {
                 let val = eval(stmt.value.into(), env)?;
                 env.set(&stmt.name.value, val);
@@ -59,7 +59,6 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
             })),
             ast::Expression::Call(call) => {
                 let function = eval((*call.function).into(), env)?;
-
                 let args = eval_expressions(call.arguments, env)?;
                 apply_function(function, args)
             }
@@ -68,7 +67,7 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
 }
 
 fn eval_program(program: ast::Program, env: &mut Environment) -> Result<Object> {
-    let mut result = Object::Null;
+    let mut result = Object::default();
 
     for stmt in program.statements.into_iter() {
         result = eval(stmt.into(), env)?;
@@ -82,7 +81,7 @@ fn eval_program(program: ast::Program, env: &mut Environment) -> Result<Object> 
 }
 
 fn eval_block_statement(block: ast::BlockStatement, env: &mut Environment) -> Result<Object> {
-    let mut result = Object::Null;
+    let mut result = Object::default();
 
     for stmt in block.statements.into_iter() {
         result = eval(stmt.into(), env)?;
@@ -99,8 +98,7 @@ fn eval_expressions(exprs: Vec<ast::Expression>, env: &mut Environment) -> Resul
     let mut result = vec![];
 
     for expr in exprs.into_iter() {
-        let evaluated = eval(expr.into(), env)?;
-        result.push(evaluated)
+        result.push(eval(expr.into(), env)?)
     }
     Ok(result)
 }
@@ -201,10 +199,7 @@ fn apply_function(func: Object, args: Vec<Object>) -> Result<Object> {
 
     let mut env = extend_function_env(&function, args);
 
-    match eval(ast::Statement::Block(function.body).into(), &mut env)? {
-        Object::ReturnValue(o) => Ok(*o),
-        obj => Ok(obj),
-    }
+    eval(ast::Statement::Block(function.body).into(), &mut env).map(Object::unwrap_return)
 }
 
 fn extend_function_env(func: &FunctionObject, args: Vec<Object>) -> Environment {
