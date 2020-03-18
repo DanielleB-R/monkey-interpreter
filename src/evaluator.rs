@@ -1,5 +1,6 @@
 use crate::ast::{self, Node};
 use crate::environment::Environment;
+use crate::object::EvalError;
 use crate::object::{FunctionObject, Object};
 
 pub fn eval(node: Node, env: &mut Environment) -> Object {
@@ -49,7 +50,9 @@ pub fn eval(node: Node, env: &mut Environment) -> Object {
             ast::Expression::If(if_expression) => eval_if_expression(if_expression, env),
             ast::Expression::Identifier(identifier) => {
                 env.get(&identifier.value).unwrap_or_else(|| {
-                    Object::Error(format!("identifier not found: {}", identifier.value))
+                    Object::Error(EvalError::IdentifierNotFound {
+                        id: identifier.value.clone(),
+                    })
                 })
             }
             ast::Expression::Function(fn_literal) => Object::Function(FunctionObject {
@@ -123,11 +126,10 @@ fn eval_prefix_expression(operator: ast::Operator, right: Object) -> Object {
     match operator {
         ast::Operator::Bang => eval_bang_operator(right),
         ast::Operator::Minus => eval_prefix_minus_operator(right),
-        _ => Object::Error(format!(
-            "unknown operator: {}{}",
+        _ => Object::Error(EvalError::UnknownPrefixOperator {
             operator,
-            right.type_name()
-        )),
+            operand: right.type_name(),
+        }),
     }
 }
 
@@ -138,14 +140,17 @@ fn eval_infix_expression(operator: ast::Operator, left: Object, right: Object) -
         op => match (left, right) {
             (Object::Integer(x), Object::Integer(y)) => eval_integer_infix_expression(op, x, y),
             (Object::Boolean(_), Object::Boolean(_)) => {
-                Object::Error(format!("unknown operator: BOOLEAN {} BOOLEAN", op))
+                Object::Error(EvalError::UnknownInfixOperator {
+                    left: "BOOLEAN",
+                    operator: op,
+                    right: "BOOLEAN",
+                })
             }
-            (a, b) => Object::Error(format!(
-                "type mismatch: {} {} {}",
-                a.type_name(),
-                op,
-                b.type_name()
-            )),
+            (a, b) => Object::Error(EvalError::TypeMismatch {
+                left: a.type_name(),
+                operator: op,
+                right: b.type_name(),
+            }),
         },
     }
 }
@@ -162,7 +167,10 @@ fn eval_bang_operator(right: Object) -> Object {
 fn eval_prefix_minus_operator(right: Object) -> Object {
     match right {
         Object::Integer(n) => Object::Integer(-n),
-        a => Object::Error(format!("unknown operator: -{}", a.type_name())),
+        a => Object::Error(EvalError::UnknownPrefixOperator {
+            operator: ast::Operator::Minus,
+            operand: a.type_name(),
+        }),
     }
 }
 
@@ -176,7 +184,11 @@ fn eval_integer_infix_expression(operator: ast::Operator, left: i64, right: i64)
         ast::Operator::GT => Object::Boolean(left > right),
         ast::Operator::Eq => Object::Boolean(left == right),
         ast::Operator::NotEq => Object::Boolean(left != right),
-        op => Object::Error(format!("unknown operator: INTEGER {} INTEGER", op)),
+        op => Object::Error(EvalError::UnknownInfixOperator {
+            left: "INTEGER",
+            operator: op,
+            right: "INTEGER",
+        }),
     }
 }
 
@@ -202,7 +214,11 @@ fn is_truthy(obj: Object) -> bool {
 fn apply_function(func: Object, args: Vec<Object>) -> Object {
     let function = match func {
         Object::Function(f) => f,
-        obj => return Object::Error(format!("not a function: {}", obj.type_name())),
+        obj => {
+            return Object::Error(EvalError::NotAFunction {
+                type_name: obj.type_name(),
+            })
+        }
     };
 
     let mut env = extend_function_env(&function, args);
@@ -348,16 +364,59 @@ mod test {
     #[test]
     fn test_error_handling() {
         let cases = vec![
-            ("5 + true;", "type mismatch: INTEGER + BOOLEAN"),
-            ("5 + true; 5;", "type mismatch: INTEGER + BOOLEAN"),
-            ("-true", "unknown operator: -BOOLEAN"),
-            ("true + false;", "unknown operator: BOOLEAN + BOOLEAN"),
-            ("5; true + false; 5", "unknown operator: BOOLEAN + BOOLEAN"),
+            (
+                "5 + true;",
+                EvalError::TypeMismatch {
+                    left: "INTEGER",
+                    operator: ast::Operator::Plus,
+                    right: "BOOLEAN",
+                },
+            ),
+            (
+                "5 + true; 5;",
+                EvalError::TypeMismatch {
+                    left: "INTEGER",
+                    operator: ast::Operator::Plus,
+                    right: "BOOLEAN",
+                },
+            ),
+            (
+                "-true",
+                EvalError::UnknownPrefixOperator {
+                    operator: ast::Operator::Minus,
+                    operand: "BOOLEAN",
+                },
+            ),
+            (
+                "true + false;",
+                EvalError::UnknownInfixOperator {
+                    left: "BOOLEAN",
+                    operator: ast::Operator::Plus,
+                    right: "BOOLEAN",
+                },
+            ),
+            (
+                "5; true + false; 5",
+                EvalError::UnknownInfixOperator {
+                    left: "BOOLEAN",
+                    operator: ast::Operator::Plus,
+                    right: "BOOLEAN",
+                },
+            ),
             (
                 "if (10 > 1) { true + false; }",
-                "unknown operator: BOOLEAN + BOOLEAN",
+                EvalError::UnknownInfixOperator {
+                    left: "BOOLEAN",
+                    operator: ast::Operator::Plus,
+                    right: "BOOLEAN",
+                },
             ),
-            ("foobar", "identifier not found: foobar"),
+            (
+                "foobar",
+                EvalError::IdentifierNotFound {
+                    id: "foobar".to_owned(),
+                },
+            ),
             (
                 "
 if (10 > 1) {
@@ -367,13 +426,17 @@ if (10 > 1) {
 
   return 1;
 }",
-                "unknown operator: BOOLEAN + BOOLEAN",
+                EvalError::UnknownInfixOperator {
+                    left: "BOOLEAN",
+                    operator: ast::Operator::Plus,
+                    right: "BOOLEAN",
+                },
             ),
         ];
 
         for (input, err) in cases.into_iter() {
             let evaluated = test_eval(input);
-            assert_eq!(evaluated, Object::Error(err.to_owned()));
+            assert_eq!(evaluated, Object::Error(err));
         }
     }
 

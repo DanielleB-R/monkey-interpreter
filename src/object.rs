@@ -2,12 +2,25 @@ use crate::ast;
 use crate::environment::Environment;
 use std::fmt::{self, Display, Formatter};
 
+use custom_error::custom_error;
+
+custom_error! {
+    #[derive(Clone, PartialEq)]
+    pub EvalError
+
+    IdentifierNotFound{id: String} = "identifier not found: {id}",
+    UnknownPrefixOperator{operator: ast::Operator, operand: &'static str} = "unknown operator: {operator}{operand}",
+    UnknownInfixOperator{left: &'static str, operator: ast::Operator, right: &'static str} = "unknown operator: {left} {operator} {right}",
+    TypeMismatch{left: &'static str, operator: ast::Operator, right: &'static str} = "type mismatch: {left} {operator} {right}",
+    NotAFunction{type_name: &'static str} = "not a function: {type_name}",
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
     Function(FunctionObject),
     ReturnValue(Box<Object>),
     // TODO: Make this a Rust error and use Results
-    Error(String),
+    Error(EvalError),
     Integer(i64),
     Boolean(bool),
     Null,
@@ -41,7 +54,7 @@ impl Object {
         }
     }
 
-    pub fn type_name(&self) -> &str {
+    pub fn type_name(&self) -> &'static str {
         match self {
             Self::Function(_) => "FUNCTION",
             Self::ReturnValue(o) => o.type_name(),
