@@ -62,6 +62,7 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
                 let args = eval_expressions(call.arguments, env)?;
                 apply_function(function, args)
             }
+            ast::Expression::String(_) => panic!(),
         },
     }
 }

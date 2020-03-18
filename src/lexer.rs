@@ -81,6 +81,10 @@ impl Lexer {
             b',' => Token::new_from_char(TokenType::Comma, self.ch),
             b'{' => Token::new_from_char(TokenType::LBrace, self.ch),
             b'}' => Token::new_from_char(TokenType::RBrace, self.ch),
+            b'"' => Token {
+                token_type: TokenType::String,
+                literal: self.read_string().to_owned(),
+            },
             0 => Token::eof(),
             c => {
                 if is_letter(c) {
@@ -115,6 +119,18 @@ impl Lexer {
         &self.input[start..self.position]
     }
 
+    fn read_string(&mut self) -> &str {
+        let position = self.position + 1;
+        loop {
+            self.read_char();
+
+            if self.ch == b'"' || self.ch == 0 {
+                break;
+            }
+        }
+        &self.input[position..self.position]
+    }
+
     fn skip_whitespace(&mut self) {
         while self.ch.is_ascii_whitespace() {
             self.read_char();
@@ -147,6 +163,8 @@ if (5 < 10) {
 
 10 == 10;
 10 != 9;
+\"foobar\"
+\"foo bar\"
 "
         .to_owned();
 
@@ -224,6 +242,8 @@ if (5 < 10) {
             (TokenType::NotEq, "!="),
             (TokenType::Int, "9"),
             (TokenType::Semicolon, ";"),
+            (TokenType::String, "foobar"),
+            (TokenType::String, "foo bar"),
             (TokenType::Eof, ""),
         ]
         .iter()

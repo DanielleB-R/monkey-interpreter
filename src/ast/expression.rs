@@ -12,6 +12,7 @@ pub enum Expression {
     If(IfExpression),
     Function(FunctionLiteral),
     Call(CallExpression),
+    String(StringLiteral),
 }
 
 impl Display for Expression {
@@ -25,6 +26,7 @@ impl Display for Expression {
             Self::If(expr) => write!(f, "{}", expr),
             Self::Function(expr) => write!(f, "{}", expr),
             Self::Call(expr) => write!(f, "{}", expr),
+            Self::String(expr) => write!(f, "{}", expr),
         }
     }
 }
@@ -84,6 +86,12 @@ impl Expression {
         match self {
             Self::Call(expr) => expr,
             _ => panic!("expected call expression"),
+        }
+    }
+    pub fn pull_string(&self) -> &StringLiteral {
+        match self {
+            Self::String(expr) => expr,
+            _ => panic!("expected string expression"),
         }
     }
 }
@@ -247,5 +255,24 @@ impl Display for CallExpression {
             self.arguments.iter().map(Expression::to_string).collect();
 
         write!(f, "{}({})", self.function, argument_names.join(", "))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StringLiteral {
+    pub token: Token,
+    pub value: String,
+}
+
+impl Display for StringLiteral {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
+impl From<Token> for StringLiteral {
+    fn from(token: Token) -> StringLiteral {
+        let value = token.literal.clone();
+        StringLiteral { token, value }
     }
 }

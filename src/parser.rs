@@ -59,6 +59,7 @@ impl Parser {
         prefix_parse_fns.insert(TokenType::LParen, Self::parse_grouped_expression);
         prefix_parse_fns.insert(TokenType::If, Self::parse_if_expression);
         prefix_parse_fns.insert(TokenType::Function, Self::parse_function_literal);
+        prefix_parse_fns.insert(TokenType::String, Self::parse_string_literal);
 
         let mut infix_parse_fns: HashMap<TokenType, InfixParseFn> = Default::default();
         infix_parse_fns.insert(TokenType::Plus, Self::parse_infix_expression);
@@ -425,6 +426,10 @@ impl Parser {
         } else {
             None
         }
+    }
+
+    fn parse_string_literal(&mut self) -> Option<ast::Expression> {
+        Some(ast::Expression::String(self.cur_token.clone().into()))
     }
 }
 
@@ -903,5 +908,17 @@ return foobar;
             Operator::Plus,
             &Expected::Int(5),
         );
+    }
+
+    #[test]
+    fn test_string_literal_expression() {
+        let input = "\"hello world\"".to_owned();
+
+        let program = Parser::new(Lexer::new(input))
+            .parse_program()
+            .expect("Parse errors found");
+
+        let literal = program.statements[0].pull_expr().expression.pull_string();
+        assert_eq!(literal.value, "hello world");
     }
 }
