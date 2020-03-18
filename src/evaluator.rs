@@ -3,123 +3,129 @@ use crate::environment::Environment;
 use crate::object::EvalError;
 use crate::object::{FunctionObject, Object};
 
-pub fn eval(node: Node, env: &mut Environment) -> Object {
+type Result<T> = std::result::Result<T, EvalError>;
+
+pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
     match node {
         Node::Program(prog) => eval_program(prog, env),
         Node::Statement(s) => match s {
             ast::Statement::Expr(stmt) => eval(stmt.expression.into(), env),
             ast::Statement::Block(stmt) => eval_block_statement(stmt, env),
             ast::Statement::Return(stmt) => {
-                let val = eval(stmt.return_value.into(), env);
-                if val.is_error() {
-                    return val;
+                let val = eval(stmt.return_value.into(), env)?;
+                if let Object::Error(err) = val {
+                    return Err(err);
                 }
-                Object::ReturnValue(Box::new(val))
+                Ok(Object::ReturnValue(Box::new(val)))
             }
             ast::Statement::Let(stmt) => {
-                let val = eval(stmt.value.into(), env);
-                if val.is_error() {
-                    return val;
+                let val = eval(stmt.value.into(), env)?;
+                if let Object::Error(err) = val {
+                    return Err(err);
                 }
                 env.set(&stmt.name.value, val);
 
-                Object::Null
+                Ok(Object::Null)
             }
         },
         Node::Expression(e) => match e {
-            ast::Expression::IntegerLiteral(l) => Object::Integer(l.value),
-            ast::Expression::Boolean(b) => Object::Boolean(b.value),
+            ast::Expression::IntegerLiteral(l) => Ok(Object::Integer(l.value)),
+            ast::Expression::Boolean(b) => Ok(Object::Boolean(b.value)),
             ast::Expression::Prefix(prefix) => {
-                let right = eval((*prefix.right).into(), env);
-                if right.is_error() {
-                    return right;
+                let right = eval((*prefix.right).into(), env)?;
+                if let Object::Error(err) = right {
+                    return Err(err);
                 }
-                eval_prefix_expression(prefix.operator, right)
+                Ok(eval_prefix_expression(prefix.operator, right))
             }
             ast::Expression::Infix(infix) => {
-                let left = eval((*infix.left).into(), env);
-                if left.is_error() {
-                    return left;
+                let left = eval((*infix.left).into(), env)?;
+                if let Object::Error(err) = left {
+                    return Err(err);
                 }
-                let right = eval((*infix.right).into(), env);
-                if right.is_error() {
-                    return right;
+                let right = eval((*infix.right).into(), env)?;
+                if let Object::Error(err) = right {
+                    return Err(err);
                 }
-                eval_infix_expression(infix.operator, left, right)
+                Ok(eval_infix_expression(infix.operator, left, right))
             }
             ast::Expression::If(if_expression) => eval_if_expression(if_expression, env),
             ast::Expression::Identifier(identifier) => {
-                env.get(&identifier.value).unwrap_or_else(|| {
+                Ok(env.get(&identifier.value).unwrap_or_else(|| {
                     Object::Error(EvalError::IdentifierNotFound {
                         id: identifier.value.clone(),
                     })
-                })
+                }))
             }
-            ast::Expression::Function(fn_literal) => Object::Function(FunctionObject {
+            ast::Expression::Function(fn_literal) => Ok(Object::Function(FunctionObject {
                 parameters: fn_literal.parameters,
                 body: fn_literal.body,
                 env: env.clone(),
-            }),
+            })),
             ast::Expression::Call(call) => {
-                let function = eval((*call.function).into(), env);
-                if function.is_error() {
-                    return function;
+                let function = eval((*call.function).into(), env)?;
+                if let Object::Error(err) = function {
+                    return Err(err);
                 }
 
-                let args = eval_expressions(call.arguments, env);
-                if args.len() == 1 && args[0].is_error() {
+                let args = eval_expressions(call.arguments, env)?;
+                Ok(if args.len() == 1 && args[0].is_error() {
                     args.into_iter().next().unwrap()
                 } else {
-                    apply_function(function, args)
-                }
+                    apply_function(function, args)?
+                })
             }
         },
     }
 }
 
-fn eval_program(program: ast::Program, env: &mut Environment) -> Object {
+fn eval_program(program: ast::Program, env: &mut Environment) -> Result<Object> {
     let mut result = Object::Null;
 
     for stmt in program.statements.into_iter() {
-        result = eval(stmt.into(), env);
+        result = eval(stmt.into(), env)?;
 
         if let Object::ReturnValue(obj) = result {
-            return *obj;
+            return Ok(*obj);
         }
 
-        if result.is_error() {
-            return result;
+        if let Object::Error(err) = result {
+            return Err(err);
         }
     }
 
-    result
+    Ok(result)
 }
 
-fn eval_block_statement(block: ast::BlockStatement, env: &mut Environment) -> Object {
+fn eval_block_statement(block: ast::BlockStatement, env: &mut Environment) -> Result<Object> {
     let mut result = Object::Null;
 
     for stmt in block.statements.into_iter() {
-        result = eval(stmt.into(), env);
+        result = eval(stmt.into(), env)?;
 
-        if result.is_return_value() || result.is_error() {
-            return result;
+        if let Object::Error(err) = result {
+            return Err(err);
+        }
+
+        if result.is_return_value() {
+            return Ok(result);
         }
     }
 
-    result
+    Ok(result)
 }
 
-fn eval_expressions(exprs: Vec<ast::Expression>, env: &mut Environment) -> Vec<Object> {
+fn eval_expressions(exprs: Vec<ast::Expression>, env: &mut Environment) -> Result<Vec<Object>> {
     let mut result = vec![];
 
     for expr in exprs.into_iter() {
-        let evaluated = eval(expr.into(), env);
-        if evaluated.is_error() {
-            return vec![evaluated];
+        let evaluated = eval(expr.into(), env)?;
+        if let Object::Error(err) = evaluated {
+            return Err(err);
         }
         result.push(evaluated)
     }
-    result
+    Ok(result)
 }
 
 fn eval_prefix_expression(operator: ast::Operator, right: Object) -> Object {
@@ -192,10 +198,10 @@ fn eval_integer_infix_expression(operator: ast::Operator, left: i64, right: i64)
     }
 }
 
-fn eval_if_expression(if_expression: ast::IfExpression, env: &mut Environment) -> Object {
-    let condition = eval((*if_expression.condition).into(), env);
-    if condition.is_error() {
-        return condition;
+fn eval_if_expression(if_expression: ast::IfExpression, env: &mut Environment) -> Result<Object> {
+    let condition = eval((*if_expression.condition).into(), env)?;
+    if let Object::Error(err) = condition {
+        return Err(err);
     }
 
     if is_truthy(condition) {
@@ -203,7 +209,7 @@ fn eval_if_expression(if_expression: ast::IfExpression, env: &mut Environment) -
     } else if let Some(alt) = if_expression.alternative {
         eval(ast::Statement::Block(alt).into(), env)
     } else {
-        Object::Null
+        Ok(Object::Null)
     }
 }
 
@@ -211,21 +217,21 @@ fn is_truthy(obj: Object) -> bool {
     obj != Object::Null && obj != Object::Boolean(false)
 }
 
-fn apply_function(func: Object, args: Vec<Object>) -> Object {
+fn apply_function(func: Object, args: Vec<Object>) -> Result<Object> {
     let function = match func {
         Object::Function(f) => f,
         obj => {
-            return Object::Error(EvalError::NotAFunction {
+            return Ok(Object::Error(EvalError::NotAFunction {
                 type_name: obj.type_name(),
-            })
+            }))
         }
     };
 
     let mut env = extend_function_env(&function, args);
 
-    match eval(ast::Statement::Block(function.body).into(), &mut env) {
-        Object::ReturnValue(o) => *o,
-        obj => obj,
+    match eval(ast::Statement::Block(function.body).into(), &mut env)? {
+        Object::ReturnValue(o) => Ok(*o),
+        obj => Ok(obj),
     }
 }
 
@@ -511,6 +517,7 @@ addTwo(2);
                 .into(),
             &mut env,
         )
+        .unwrap()
     }
 
     fn test_integer_object(obj: &Object, expected: i64) {

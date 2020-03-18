@@ -24,7 +24,10 @@ pub fn start() {
             }
             Ok(program) => {
                 let output = evaluator::eval(program.into(), &mut env);
-                println!("{}", output);
+                match output {
+                    Ok(val) => println!("{}", val),
+                    Err(err) => println!("ERROR: {}", err),
+                }
             }
         }
     }
