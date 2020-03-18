@@ -1,3 +1,4 @@
+use crate::environment::Environment;
 use crate::evaluator;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
@@ -6,6 +7,7 @@ use std::io::{self, Write};
 static PROMPT: &str = ">> ";
 
 pub fn start() {
+    let mut env = Environment::new();
     loop {
         print!("{}", PROMPT);
         let _ = io::stdout().flush();
@@ -21,7 +23,7 @@ pub fn start() {
                 }
             }
             Ok(program) => {
-                let output = evaluator::eval(program.into());
+                let output = evaluator::eval(program.into(), &mut env);
                 println!("{}", output);
             }
         }

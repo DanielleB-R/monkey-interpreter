@@ -1,53 +1,67 @@
 use crate::ast::{self, Node};
+use crate::environment::Environment;
 use crate::object::Object;
 
-pub fn eval(node: Node) -> Object {
+pub fn eval(node: Node, env: &mut Environment) -> Object {
     match node {
-        Node::Program(prog) => eval_program(prog),
+        Node::Program(prog) => eval_program(prog, env),
         Node::Statement(s) => match s {
-            ast::Statement::Expr(stmt) => eval(stmt.expression.into()),
-            ast::Statement::Block(stmt) => eval_block_statement(stmt),
+            ast::Statement::Expr(stmt) => eval(stmt.expression.into(), env),
+            ast::Statement::Block(stmt) => eval_block_statement(stmt, env),
             ast::Statement::Return(stmt) => {
-                let val = eval(stmt.return_value.into());
+                let val = eval(stmt.return_value.into(), env);
                 if val.is_error() {
                     return val;
                 }
                 Object::ReturnValue(Box::new(val))
             }
-            _ => Object::Null,
+            ast::Statement::Let(stmt) => {
+                let val = eval(stmt.value.into(), env);
+                if val.is_error() {
+                    return val;
+                }
+                env.set(&stmt.name.value, val);
+
+                Object::Null
+            }
         },
         Node::Expression(e) => match e {
             ast::Expression::IntegerLiteral(l) => Object::Integer(l.value),
             ast::Expression::Boolean(b) => Object::Boolean(b.value),
             ast::Expression::Prefix(prefix) => {
-                let right = eval((*prefix.right).into());
+                let right = eval((*prefix.right).into(), env);
                 if right.is_error() {
                     return right;
                 }
                 eval_prefix_expression(prefix.operator, right)
             }
             ast::Expression::Infix(infix) => {
-                let left = eval((*infix.left).into());
+                let left = eval((*infix.left).into(), env);
                 if left.is_error() {
                     return left;
                 }
-                let right = eval((*infix.right).into());
+                let right = eval((*infix.right).into(), env);
                 if right.is_error() {
                     return right;
                 }
                 eval_infix_expression(infix.operator, left, right)
             }
-            ast::Expression::If(if_expression) => eval_if_expression(if_expression),
+            ast::Expression::If(if_expression) => eval_if_expression(if_expression, env),
+            ast::Expression::Identifier(identifier) => {
+                env.get(&identifier.value).unwrap_or_else(|| {
+                    Object::Error(format!("identifier not found: {}", identifier.value))
+                })
+            }
             _ => Object::Null,
         },
     }
 }
 
-fn eval_program(program: ast::Program) -> Object {
+fn eval_program(program: ast::Program, env: &mut Environment) -> Object {
     let mut result = Object::Null;
 
     for stmt in program.statements.into_iter() {
-        result = eval(stmt.into());
+        result = eval(stmt.into(), env);
 
         if let Object::ReturnValue(obj) = result {
             return *obj;
@@ -61,11 +75,11 @@ fn eval_program(program: ast::Program) -> Object {
     result
 }
 
-fn eval_block_statement(block: ast::BlockStatement) -> Object {
+fn eval_block_statement(block: ast::BlockStatement, env: &mut Environment) -> Object {
     let mut result = Object::Null;
 
     for stmt in block.statements.into_iter() {
-        result = eval(stmt.into());
+        result = eval(stmt.into(), env);
 
         if result.is_return_value() || result.is_error() {
             return result;
@@ -136,16 +150,16 @@ fn eval_integer_infix_expression(operator: ast::Operator, left: i64, right: i64)
     }
 }
 
-fn eval_if_expression(if_expression: ast::IfExpression) -> Object {
-    let condition = eval((*if_expression.condition).into());
+fn eval_if_expression(if_expression: ast::IfExpression, env: &mut Environment) -> Object {
+    let condition = eval((*if_expression.condition).into(), env);
     if condition.is_error() {
         return condition;
     }
 
     if is_truthy(condition) {
-        eval(ast::Statement::Block(if_expression.consequence).into())
+        eval(ast::Statement::Block(if_expression.consequence).into(), env)
     } else if let Some(alt) = if_expression.alternative {
-        eval(ast::Statement::Block(alt).into())
+        eval(ast::Statement::Block(alt).into(), env)
     } else {
         Object::Null
     }
@@ -289,6 +303,7 @@ mod test {
                 "if (10 > 1) { true + false; }",
                 "unknown operator: BOOLEAN + BOOLEAN",
             ),
+            ("foobar", "identifier not found: foobar"),
             (
                 "
 if (10 > 1) {
@@ -308,12 +323,29 @@ if (10 > 1) {
         }
     }
 
+    #[test]
+    fn test_let_statements() {
+        let cases = vec![
+            ("let a = 5; a;", 5),
+            ("let a = 5 * 5; a;", 25),
+            ("let a = 5; let b = a; b;", 5),
+            ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
+        ];
+
+        for (input, val) in cases.into_iter() {
+            let evaluated = test_eval(input);
+            test_integer_object(&evaluated, val);
+        }
+    }
+
     fn test_eval(input: &str) -> Object {
+        let mut env = Environment::new();
         eval(
             Parser::new(Lexer::new(input.to_owned()))
                 .parse_program()
                 .expect("Parse errors found")
                 .into(),
+            &mut env,
         )
     }
 

@@ -3,6 +3,7 @@ use std::fmt::{self, Display, Formatter};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
     ReturnValue(Box<Object>),
+    // TODO: Make this a Rust error and use Results
     Error(String),
     Integer(i64),
     Boolean(bool),
