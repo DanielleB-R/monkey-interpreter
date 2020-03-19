@@ -1,20 +1,7 @@
 use crate::ast::{self, Node};
+use crate::builtins::BUILTINS;
 use crate::environment::Environment;
-use crate::object::{FunctionObject, Object};
-use custom_error::custom_error;
-
-custom_error! {
-    #[derive(Clone, PartialEq)]
-    pub EvalError
-
-    IdentifierNotFound{id: String} = "identifier not found: {id}",
-    UnknownPrefixOperator{operator: ast::Operator, operand: &'static str} = "unknown operator: {operator}{operand}",
-    UnknownInfixOperator{left: &'static str, operator: ast::Operator, right: &'static str} = "unknown operator: {left} {operator} {right}",
-    TypeMismatch{left: &'static str, operator: ast::Operator, right: &'static str} = "type mismatch: {left} {operator} {right}",
-    NotAFunction{type_name: &'static str} = "not a function: {type_name}",
-}
-
-type Result<T> = std::result::Result<T, EvalError>;
+use crate::object::{EvalError, FunctionObject, Object, Result};
 
 pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
     match node {
@@ -46,12 +33,12 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
                 eval_infix_expression(infix.operator, left, right)
             }
             ast::Expression::If(if_expression) => eval_if_expression(if_expression, env),
-            ast::Expression::Identifier(identifier) => {
-                env.get(&identifier.value)
-                    .ok_or_else(|| EvalError::IdentifierNotFound {
-                        id: identifier.value.clone(),
-                    })
-            }
+            ast::Expression::Identifier(identifier) => env
+                .get(&identifier.value)
+                .or_else(|| BUILTINS.get(&identifier.value).cloned())
+                .ok_or_else(|| EvalError::IdentifierNotFound {
+                    id: identifier.value.clone(),
+                }),
             ast::Expression::Function(fn_literal) => Ok(Object::Function(FunctionObject {
                 parameters: fn_literal.parameters,
                 body: fn_literal.body,
@@ -205,18 +192,17 @@ fn is_truthy(obj: Object) -> bool {
 }
 
 fn apply_function(func: Object, args: Vec<Object>) -> Result<Object> {
-    let function = match func {
-        Object::Function(f) => f,
-        obj => {
-            return Err(EvalError::NotAFunction {
-                type_name: obj.type_name(),
-            })
+    match func {
+        Object::Function(f) => {
+            let mut env = extend_function_env(&f, args);
+
+            eval(ast::Statement::Block(f.body).into(), &mut env).map(Object::unwrap_return)
         }
-    };
-
-    let mut env = extend_function_env(&function, args);
-
-    eval(ast::Statement::Block(function.body).into(), &mut env).map(Object::unwrap_return)
+        Object::Builtin(f) => f(args),
+        obj => Err(EvalError::NotAFunction {
+            type_name: obj.type_name(),
+        }),
+    }
 }
 
 fn extend_function_env(func: &FunctionObject, args: Vec<Object>) -> Environment {
@@ -505,6 +491,30 @@ addTwo(2);
         match test_eval(input).unwrap() {
             Object::String(s) => assert_eq!(s, "Hello World!"),
             _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_builtin_functions() {
+        let cases = vec![
+            ("len(\"\")", Ok(Object::Integer(0))),
+            ("len(\"four\")", Ok(Object::Integer(4))),
+            ("len(\"hello world\")", Ok(Object::Integer(11))),
+            (
+                "len(1)",
+                Err(EvalError::UnsupportedArgType {
+                    fn_name: "len",
+                    type_name: "INTEGER",
+                }),
+            ),
+            (
+                "len(\"one\", \"two\")",
+                Err(EvalError::IncorrectArity { got: 2, want: 1 }),
+            ),
+        ];
+
+        for (input, output) in cases.into_iter() {
+            assert_eq!(test_eval(input), output);
         }
     }
 

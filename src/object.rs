@@ -1,10 +1,29 @@
 use crate::ast;
 use crate::environment::Environment;
+use custom_error::custom_error;
 use std::fmt::{self, Display, Formatter};
+
+custom_error! {
+    #[derive(Clone, PartialEq)]
+    pub EvalError
+
+    IdentifierNotFound{id: String} = "identifier not found: {id}",
+    UnknownPrefixOperator{operator: ast::Operator, operand: &'static str} = "unknown operator: {operator}{operand}",
+    UnknownInfixOperator{left: &'static str, operator: ast::Operator, right: &'static str} = "unknown operator: {left} {operator} {right}",
+    TypeMismatch{left: &'static str, operator: ast::Operator, right: &'static str} = "type mismatch: {left} {operator} {right}",
+    NotAFunction{type_name: &'static str} = "not a function: {type_name}",
+    UnsupportedArgType{fn_name: &'static str, type_name: &'static str} = "argument to `{fn_name}` not supported, got {type_name}",
+    IncorrectArity{got: usize, want: usize} = "wrong number of arguments. got={got}, want={want}",
+}
+
+pub type Result<T> = std::result::Result<T, EvalError>;
+
+pub type Builtin = fn(Vec<Object>) -> Result<Object>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
     Function(FunctionObject),
+    Builtin(Builtin),
     ReturnValue(Box<Object>),
     Integer(i64),
     Boolean(bool),
@@ -16,6 +35,7 @@ impl Display for Object {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Function(func) => write!(f, "{}", func),
+            Self::Builtin(_) => write!(f, "builtin function"),
             Self::ReturnValue(obj) => write!(f, "{}", obj),
             Self::Integer(n) => write!(f, "{}", n),
             Self::Boolean(b) => write!(f, "{}", b),
@@ -49,6 +69,7 @@ impl Object {
     pub fn type_name(&self) -> &'static str {
         match self {
             Self::Function(_) => "FUNCTION",
+            Self::Builtin(_) => "BUILTIN",
             Self::ReturnValue(o) => o.type_name(),
             Self::Boolean(_) => "BOOLEAN",
             Self::Integer(_) => "INTEGER",
