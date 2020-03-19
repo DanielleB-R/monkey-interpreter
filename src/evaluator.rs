@@ -62,7 +62,7 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
                 let args = eval_expressions(call.arguments, env)?;
                 apply_function(function, args)
             }
-            ast::Expression::String(_) => panic!(),
+            ast::Expression::String(s) => Ok(Object::String(s.value)),
         },
     }
 }
@@ -126,6 +126,7 @@ fn eval_infix_expression(operator: ast::Operator, left: Object, right: Object) -
                 operator: op,
                 right: "BOOLEAN",
             }),
+            (Object::String(a), Object::String(b)) => eval_string_infix_expression(op, a, b),
             (a, b) => Err(EvalError::TypeMismatch {
                 left: a.type_name(),
                 operator: op,
@@ -168,6 +169,21 @@ fn eval_integer_infix_expression(operator: ast::Operator, left: i64, right: i64)
             left: "INTEGER",
             operator: op,
             right: "INTEGER",
+        }),
+    }
+}
+
+fn eval_string_infix_expression(
+    operator: ast::Operator,
+    left: String,
+    right: String,
+) -> Result<Object> {
+    match operator {
+        ast::Operator::Plus => Ok(Object::String(left + &right)),
+        op => Err(EvalError::UnknownInfixOperator {
+            left: "STRING",
+            operator: op,
+            right: "STRING",
         }),
     }
 }
@@ -401,6 +417,14 @@ if (10 > 1) {
                     right: "BOOLEAN",
                 },
             ),
+            (
+                "\"Hello\" - \"World\"",
+                EvalError::UnknownInfixOperator {
+                    left: "STRING",
+                    operator: ast::Operator::Minus,
+                    right: "STRING",
+                },
+            ),
         ];
 
         for (input, err) in cases.into_iter() {
@@ -464,6 +488,24 @@ addTwo(2);
 ";
 
         test_integer_object(&test_eval(input).unwrap(), 4);
+    }
+
+    #[test]
+    fn test_string_literal() {
+        let input = "\"Hello World!\"";
+        match test_eval(input).unwrap() {
+            Object::String(s) => assert_eq!(s, "Hello World!"),
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_string_concatenation() {
+        let input = "\"Hello\" +\" World!\"";
+        match test_eval(input).unwrap() {
+            Object::String(s) => assert_eq!(s, "Hello World!"),
+            _ => panic!(),
+        }
     }
 
     fn test_eval(input: &str) -> Result<Object> {

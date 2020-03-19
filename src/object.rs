@@ -8,6 +8,7 @@ pub enum Object {
     ReturnValue(Box<Object>),
     Integer(i64),
     Boolean(bool),
+    String(String),
     Null,
 }
 
@@ -18,6 +19,7 @@ impl Display for Object {
             Self::ReturnValue(obj) => write!(f, "{}", obj),
             Self::Integer(n) => write!(f, "{}", n),
             Self::Boolean(b) => write!(f, "{}", b),
+            Self::String(s) => write!(f, "{}", s),
             Self::Null => write!(f, "null"),
         }
     }
@@ -50,6 +52,7 @@ impl Object {
             Self::ReturnValue(o) => o.type_name(),
             Self::Boolean(_) => "BOOLEAN",
             Self::Integer(_) => "INTEGER",
+            Self::String(_) => "STRING",
             Self::Null => "NULL",
         }
     }
