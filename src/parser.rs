@@ -2,7 +2,6 @@ use crate::ast::{Expression, Operator, Statement};
 use crate::token::TokenType;
 use crate::{ast, lexer, token};
 use std::collections::HashMap;
-use std::rc::Rc;
 
 type PrefixParseFn = fn(&mut Parser) -> Option<ast::Expression>;
 type InfixParseFn = fn(&mut Parser, ast::Expression) -> Option<ast::Expression>;
@@ -121,7 +120,7 @@ impl Parser {
             return None;
         }
 
-        let name: Rc<ast::Identifier> = Rc::new(self.cur_token.clone().into());
+        let name = self.cur_token.clone().into();
 
         if !self.expect_peek(TokenType::Assign) {
             return None;

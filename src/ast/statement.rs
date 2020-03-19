@@ -1,7 +1,6 @@
 use super::{Expression, Identifier};
 use crate::token::Token;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
@@ -49,7 +48,7 @@ impl Statement {
 #[derive(Debug, Clone, PartialEq)]
 pub struct LetStatement {
     pub token: Token,
-    pub name: Rc<Identifier>,
+    pub name: Identifier,
     pub value: Expression,
 }
 

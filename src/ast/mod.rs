@@ -68,7 +68,6 @@ impl From<Token> for Identifier {
 mod test {
     use super::*;
     use crate::token::TokenType;
-    use std::rc::Rc;
 
     #[test]
     fn test_display() {
@@ -78,13 +77,11 @@ mod test {
                     token_type: TokenType::Let,
                     literal: "let".to_owned(),
                 },
-                name: Rc::new(
-                    Token {
-                        token_type: TokenType::Ident,
-                        literal: "myVar".to_owned(),
-                    }
-                    .into(),
-                ),
+                name: Token {
+                    token_type: TokenType::Ident,
+                    literal: "myVar".to_owned(),
+                }
+                .into(),
                 value: Expression::Identifier(Identifier {
                     token: Token {
                         token_type: TokenType::Ident,
