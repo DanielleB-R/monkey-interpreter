@@ -535,6 +535,39 @@ addTwo(2);
                 "len(\"one\", \"two\")",
                 Err(EvalError::IncorrectArity { got: 2, want: 1 }),
             ),
+            ("len([1, 2, 3])", Ok(Object::Integer(3))),
+            ("len([])", Ok(Object::Integer(0))),
+            ("first([1, 2, 3])", Ok(Object::Integer(1))),
+            ("first([])", Ok(Object::Null)),
+            (
+                "first(1)",
+                Err(EvalError::UnsupportedArgType {
+                    fn_name: "first",
+                    type_name: "INTEGER",
+                }),
+            ),
+            ("last([1, 2, 3])", Ok(Object::Integer(3))),
+            ("last([])", Ok(Object::Null)),
+            (
+                "last(1)",
+                Err(EvalError::UnsupportedArgType {
+                    fn_name: "last",
+                    type_name: "INTEGER",
+                }),
+            ),
+            (
+                "rest([1, 2, 3])",
+                Ok(Object::Array(vec![Object::Integer(2), Object::Integer(3)])),
+            ),
+            ("rest([])", Ok(Object::Null)),
+            ("push([], 1)", Ok(Object::Array(vec![Object::Integer(1)]))),
+            (
+                "push(1, 1)",
+                Err(EvalError::UnsupportedArgType {
+                    fn_name: "push",
+                    type_name: "INTEGER",
+                }),
+            ),
         ];
 
         for (input, output) in cases.into_iter() {
