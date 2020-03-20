@@ -14,6 +14,7 @@ custom_error! {
     NotAFunction{type_name: &'static str} = "not a function: {type_name}",
     UnsupportedArgType{fn_name: &'static str, type_name: &'static str} = "argument to `{fn_name}` not supported, got {type_name}",
     IncorrectArity{got: usize, want: usize} = "wrong number of arguments. got={got}, want={want}",
+    NotIndexable{type_name: &'static str} = "index operator not supported: {type_name}",
 }
 
 pub type Result<T> = std::result::Result<T, EvalError>;

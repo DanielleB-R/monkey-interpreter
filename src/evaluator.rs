@@ -50,6 +50,12 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
                 apply_function(function, args)
             }
             ast::Expression::String(s) => Ok(Object::String(s.value)),
+            ast::Expression::Array(a) => eval_expressions(a.elements, env).map(Object::Array),
+            ast::Expression::Index(i) => {
+                let left = eval((*i.left).into(), env)?;
+                let index = eval((*i.index).into(), env)?;
+                eval_index_expression(left, index)
+            }
             _ => Ok(Object::Null),
         },
     }
@@ -214,6 +220,23 @@ fn extend_function_env(func: &FunctionObject, args: Vec<Object>) -> Environment 
     }
 
     env
+}
+
+fn eval_index_expression(array: Object, index: Object) -> Result<Object> {
+    match (array, index) {
+        (Object::Array(arr), Object::Integer(n)) => eval_array_index_expression(arr, n),
+        (a, _) => Err(EvalError::NotIndexable {
+            type_name: a.type_name(),
+        }),
+    }
+}
+
+fn eval_array_index_expression(array: Vec<Object>, index: i64) -> Result<Object> {
+    if index >= 0 && index < array.len() as i64 {
+        Ok(array.into_iter().nth(index as usize).unwrap())
+    } else {
+        Ok(Object::Null)
+    }
 }
 
 #[cfg(test)]
@@ -516,6 +539,47 @@ addTwo(2);
 
         for (input, output) in cases.into_iter() {
             assert_eq!(test_eval(input), output);
+        }
+    }
+
+    #[test]
+    fn test_array_literals() {
+        let input = "[1, 2 * 2, 3 + 3]";
+
+        let arr_obj = match test_eval(input).unwrap() {
+            Object::Array(a) => a,
+            _ => panic!("not an array"),
+        };
+
+        assert_eq!(arr_obj.len(), 3);
+        assert_eq!(arr_obj[0], Object::Integer(1));
+        assert_eq!(arr_obj[1], Object::Integer(4));
+        assert_eq!(arr_obj[2], Object::Integer(6));
+    }
+
+    #[test]
+    fn test_array_index_expressions() {
+        let cases = vec![
+            ("[1, 2, 3][0]", Object::Integer(1)),
+            ("[1, 2, 3][1]", Object::Integer(2)),
+            ("[1, 2, 3][2]", Object::Integer(3)),
+            ("let i = 0; [1][i];", Object::Integer(1)),
+            ("[1, 2, 3][1 + 1];", Object::Integer(3)),
+            ("let myArray = [1, 2, 3]; myArray[2];", Object::Integer(3)),
+            (
+                "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];",
+                Object::Integer(6),
+            ),
+            (
+                "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i];",
+                Object::Integer(2),
+            ),
+            ("[1, 2, 3][3]", Object::Null),
+            ("[1, 2, 3][-1]", Object::Null),
+        ];
+
+        for (input, output) in cases.into_iter() {
+            assert_eq!(test_eval(input).unwrap(), output);
         }
     }
 
