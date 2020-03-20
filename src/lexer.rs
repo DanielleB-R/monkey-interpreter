@@ -81,6 +81,8 @@ impl Lexer {
             b',' => Token::new_from_char(TokenType::Comma, self.ch),
             b'{' => Token::new_from_char(TokenType::LBrace, self.ch),
             b'}' => Token::new_from_char(TokenType::RBrace, self.ch),
+            b'[' => Token::new_from_char(TokenType::LBracket, self.ch),
+            b']' => Token::new_from_char(TokenType::RBracket, self.ch),
             b'"' => Token {
                 token_type: TokenType::String,
                 literal: self.read_string().to_owned(),
@@ -165,6 +167,7 @@ if (5 < 10) {
 10 != 9;
 \"foobar\"
 \"foo bar\"
+[1, 2];
 "
         .to_owned();
 
@@ -244,6 +247,12 @@ if (5 < 10) {
             (TokenType::Semicolon, ";"),
             (TokenType::String, "foobar"),
             (TokenType::String, "foo bar"),
+            (TokenType::LBracket, "["),
+            (TokenType::Int, "1"),
+            (TokenType::Comma, ","),
+            (TokenType::Int, "2"),
+            (TokenType::RBracket, "]"),
+            (TokenType::Semicolon, ";"),
             (TokenType::Eof, ""),
         ]
         .iter()

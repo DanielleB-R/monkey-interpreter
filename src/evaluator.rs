@@ -50,6 +50,7 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
                 apply_function(function, args)
             }
             ast::Expression::String(s) => Ok(Object::String(s.value)),
+            _ => Ok(Object::Null),
         },
     }
 }

@@ -12,7 +12,9 @@ pub enum Expression {
     If(IfExpression),
     Function(FunctionLiteral),
     Call(CallExpression),
+    Array(ArrayLiteral),
     String(StringLiteral),
+    Index(IndexExpression),
 }
 
 impl Display for Expression {
@@ -26,7 +28,9 @@ impl Display for Expression {
             Self::If(expr) => write!(f, "{}", expr),
             Self::Function(expr) => write!(f, "{}", expr),
             Self::Call(expr) => write!(f, "{}", expr),
+            Self::Array(expr) => write!(f, "{}", expr),
             Self::String(expr) => write!(f, "{}", expr),
+            Self::Index(expr) => write!(f, "{}", expr),
         }
     }
 }
@@ -88,10 +92,22 @@ impl Expression {
             _ => panic!("expected call expression"),
         }
     }
+    pub fn pull_index(&self) -> &IndexExpression {
+        match self {
+            Self::Index(expr) => expr,
+            _ => panic!("expected index expression"),
+        }
+    }
     pub fn pull_string(&self) -> &StringLiteral {
         match self {
             Self::String(expr) => expr,
             _ => panic!("expected string expression"),
+        }
+    }
+    pub fn pull_array(&self) -> &ArrayLiteral {
+        match self {
+            Self::Array(expr) => expr,
+            _ => panic!("expected array expression"),
         }
     }
 }
@@ -274,5 +290,32 @@ impl From<Token> for StringLiteral {
     fn from(token: Token) -> StringLiteral {
         let value = token.literal.clone();
         StringLiteral { token, value }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ArrayLiteral {
+    pub token: Token,
+    pub elements: Vec<Expression>,
+}
+
+impl Display for ArrayLiteral {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        let argument_names: Vec<String> = self.elements.iter().map(Expression::to_string).collect();
+
+        write!(f, "[{}]", argument_names.join(", "))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IndexExpression {
+    pub token: Token,
+    pub left: Box<Expression>,
+    pub index: Box<Expression>,
+}
+
+impl Display for IndexExpression {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "({}[{}])", self.left, self.index)
     }
 }

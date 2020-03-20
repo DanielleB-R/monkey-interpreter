@@ -15,6 +15,7 @@ enum Precedence {
     Product,
     Prefix,
     Call,
+    Index,
 }
 
 impl From<TokenType> for Precedence {
@@ -29,6 +30,7 @@ impl From<TokenType> for Precedence {
             TokenType::Slash => Self::Product,
             TokenType::Asterisk => Self::Product,
             TokenType::LParen => Self::Call,
+            TokenType::LBracket => Self::Index,
             _ => Self::Lowest,
         }
     }
@@ -59,6 +61,7 @@ impl Parser {
         prefix_parse_fns.insert(TokenType::If, Self::parse_if_expression);
         prefix_parse_fns.insert(TokenType::Function, Self::parse_function_literal);
         prefix_parse_fns.insert(TokenType::String, Self::parse_string_literal);
+        prefix_parse_fns.insert(TokenType::LBracket, Self::parse_array_literal);
 
         let mut infix_parse_fns: HashMap<TokenType, InfixParseFn> = Default::default();
         infix_parse_fns.insert(TokenType::Plus, Self::parse_infix_expression);
@@ -70,6 +73,7 @@ impl Parser {
         infix_parse_fns.insert(TokenType::LT, Self::parse_infix_expression);
         infix_parse_fns.insert(TokenType::GT, Self::parse_infix_expression);
         infix_parse_fns.insert(TokenType::LParen, Self::parse_call_expression);
+        infix_parse_fns.insert(TokenType::LBracket, Self::parse_index_expression);
 
         Self {
             lexer: lexer.peekable(),
@@ -393,7 +397,7 @@ impl Parser {
 
     fn parse_call_expression(&mut self, function: ast::Expression) -> Option<ast::Expression> {
         let token = self.cur_token.clone();
-        let arguments = self.parse_call_arguments()?;
+        let arguments = self.parse_expression_list(TokenType::RParen)?;
 
         Some(Expression::Call(ast::CallExpression {
             token,
@@ -402,26 +406,26 @@ impl Parser {
         }))
     }
 
-    fn parse_call_arguments(&mut self) -> Option<Vec<ast::Expression>> {
-        let mut args = Default::default();
+    fn parse_expression_list(&mut self, end: TokenType) -> Option<Vec<ast::Expression>> {
+        let mut list = Default::default();
 
-        if self.peek_token().is(TokenType::RParen) {
+        if self.peek_token().is(end) {
             self.next_token();
-            return Some(args);
+            return Some(list);
         }
 
         self.next_token();
 
-        args.push(self.parse_expression(Precedence::Lowest)?);
+        list.push(self.parse_expression(Precedence::Lowest)?);
 
         while self.peek_token().is(TokenType::Comma) {
             self.next_token();
             self.next_token();
-            args.push(self.parse_expression(Precedence::Lowest)?);
+            list.push(self.parse_expression(Precedence::Lowest)?);
         }
 
-        if self.expect_peek(TokenType::RParen) {
-            Some(args)
+        if self.expect_peek(end) {
+            Some(list)
         } else {
             None
         }
@@ -429,6 +433,29 @@ impl Parser {
 
     fn parse_string_literal(&mut self) -> Option<ast::Expression> {
         Some(ast::Expression::String(self.cur_token.clone().into()))
+    }
+
+    fn parse_array_literal(&mut self) -> Option<ast::Expression> {
+        let token = self.cur_token.clone();
+        let elements = self.parse_expression_list(TokenType::RBracket)?;
+        Some(Expression::Array(ast::ArrayLiteral { token, elements }))
+    }
+
+    fn parse_index_expression(&mut self, left: ast::Expression) -> Option<ast::Expression> {
+        let token = self.cur_token.clone();
+
+        self.next_token();
+        let index = self.parse_expression(Precedence::Lowest)?;
+
+        if self.expect_peek(TokenType::RBracket) {
+            Some(Expression::Index(ast::IndexExpression {
+                token,
+                left: Box::new(left),
+                index: Box::new(index),
+            }))
+        } else {
+            None
+        }
     }
 }
 
@@ -704,6 +731,14 @@ return foobar;
                 "add(a + b + c * d / f + g)",
                 "add((((a + b) + ((c * d) / f)) + g))",
             ),
+            (
+                "a * [1 ,2, 3, 4][b * c] * d",
+                "((a * ([1, 2, 3, 4][(b * c)])) * d)",
+            ),
+            (
+                "add(a * b[2], b[1], 2 * [1, 2][1])",
+                "add((a * (b[2])), (b[1]), (2 * ([1, 2][1])))",
+            ),
         ];
 
         for (input, output) in cases.iter() {
@@ -919,5 +954,65 @@ return foobar;
 
         let literal = program.statements[0].pull_expr().expression.pull_string();
         assert_eq!(literal.value, "hello world");
+    }
+
+    #[test]
+    fn test_parsing_array_literals() {
+        let input = "[1, 2 * 2, 3 + 3]".to_owned();
+
+        let program = Parser::new(Lexer::new(input))
+            .parse_program()
+            .expect("Parse errors found");
+
+        assert_eq!(program.statements.len(), 1);
+        let array = program.statements[0].pull_expr().expression.pull_array();
+        assert_eq!(array.elements.len(), 3);
+
+        test_integer_literal(&array.elements[0], 1);
+        test_infix_expression(
+            &array.elements[1],
+            &Expected::Int(2),
+            Operator::Asterisk,
+            &Expected::Int(2),
+        );
+        test_infix_expression(
+            &array.elements[2],
+            &Expected::Int(3),
+            Operator::Plus,
+            &Expected::Int(3),
+        );
+    }
+
+    #[test]
+    fn test_parsing_empty_array_literals() {
+        let input = "[]".to_owned();
+
+        let program = Parser::new(Lexer::new(input))
+            .parse_program()
+            .expect("Parse errors found");
+
+        assert_eq!(program.statements.len(), 1);
+        let array = program.statements[0].pull_expr().expression.pull_array();
+        assert_eq!(array.elements.len(), 0);
+    }
+
+    #[test]
+    fn test_parsing_index_expressions() {
+        let input = "myArray[1 + 1]".to_owned();
+
+        let program = Parser::new(Lexer::new(input))
+            .parse_program()
+            .expect("Parse errors found");
+
+        assert_eq!(program.statements.len(), 1);
+        let index = program.statements[0].pull_expr().expression.pull_index();
+
+        test_identifier(&index.left, "myArray");
+        test_infix_expression(
+            &index.index,
+            &Expected::Int(1),
+            Operator::Plus,
+            &Expected::Int(1),
+        );
     }
 }

@@ -28,6 +28,7 @@ pub enum Object {
     Integer(i64),
     Boolean(bool),
     String(String),
+    Array(Vec<Object>),
     Null,
 }
 
@@ -40,6 +41,11 @@ impl Display for Object {
             Self::Integer(n) => write!(f, "{}", n),
             Self::Boolean(b) => write!(f, "{}", b),
             Self::String(s) => write!(f, "{}", s),
+            Self::Array(a) => {
+                let identifier_names: Vec<String> = a.iter().map(Object::to_string).collect();
+
+                write!(f, "[{}]", identifier_names.join(", "))
+            }
             Self::Null => write!(f, "null"),
         }
     }
@@ -74,6 +80,7 @@ impl Object {
             Self::Boolean(_) => "BOOLEAN",
             Self::Integer(_) => "INTEGER",
             Self::String(_) => "STRING",
+            Self::Array(a) => "ARRAY",
             Self::Null => "NULL",
         }
     }
