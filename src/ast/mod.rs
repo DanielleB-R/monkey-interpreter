@@ -59,16 +59,8 @@ impl Display for Identifier {
 
 impl From<Token> for Identifier {
     fn from(token: Token) -> Self {
-        match token {
-            Token::Ident(literal) => {
-                let value = literal.clone();
-                Self {
-                    token: Token::Ident(literal),
-                    value,
-                }
-            }
-            _ => panic!("Not an identifier token"),
-        }
+        let value = token.literal().to_owned();
+        Self { token, value }
     }
 }
 

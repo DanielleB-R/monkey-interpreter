@@ -1,5 +1,5 @@
 use crate::ast::{Expression, Operator, Statement};
-use crate::token::TokenType;
+use crate::token::{Token, TokenType};
 use crate::{ast, lexer, token};
 use std::collections::HashMap;
 
@@ -18,19 +18,19 @@ enum Precedence {
     Index,
 }
 
-impl From<TokenType> for Precedence {
-    fn from(t: TokenType) -> Self {
+impl From<&Token> for Precedence {
+    fn from(t: &Token) -> Self {
         match t {
-            TokenType::Eq => Self::Equals,
-            TokenType::NotEq => Self::Equals,
-            TokenType::LT => Self::LessGreater,
-            TokenType::GT => Self::LessGreater,
-            TokenType::Plus => Self::Sum,
-            TokenType::Minus => Self::Sum,
-            TokenType::Slash => Self::Product,
-            TokenType::Asterisk => Self::Product,
-            TokenType::LParen => Self::Call,
-            TokenType::LBracket => Self::Index,
+            Token::Eq => Self::Equals,
+            Token::NotEq => Self::Equals,
+            Token::LT => Self::LessGreater,
+            Token::GT => Self::LessGreater,
+            Token::Plus => Self::Sum,
+            Token::Minus => Self::Sum,
+            Token::Slash => Self::Product,
+            Token::Asterisk => Self::Product,
+            Token::LParen => Self::Call,
+            Token::LBracket => Self::Index,
             _ => Self::Lowest,
         }
     }
@@ -100,6 +100,12 @@ impl Parser {
         self.cur_token.as_ref().unwrap().into()
     }
 
+    fn skip(&mut self, token_type: TokenType) {
+        if self.peek_token().is(token_type) {
+            self.next_token();
+        }
+    }
+
     pub fn parse_program(mut self) -> Result<ast::Program, Vec<String>> {
         let mut program = ast::Program::default();
 
@@ -142,9 +148,7 @@ impl Parser {
 
         let value = self.parse_expression(Precedence::Lowest)?;
 
-        if self.peek_token().is(TokenType::Semicolon) {
-            self.next_token();
-        }
+        self.skip(TokenType::Semicolon);
 
         Some(ast::LetStatement { token, name, value })
     }
@@ -156,9 +160,7 @@ impl Parser {
 
         let return_value = self.parse_expression(Precedence::Lowest)?;
 
-        if self.peek_token().is(TokenType::Semicolon) {
-            self.next_token();
-        }
+        self.skip(TokenType::Semicolon);
 
         Some(ast::ReturnStatement {
             token,
@@ -167,17 +169,11 @@ impl Parser {
     }
 
     fn parse_expression_statement(&mut self) -> Option<ast::ExpressionStatement> {
-        // The expression also needs the token so we need a copy
-        let token = self.cur_token.clone().unwrap();
-
         let expression = self.parse_expression(Precedence::Lowest);
 
-        if self.peek_token().is(TokenType::Semicolon) {
-            self.next_token();
-        }
+        self.skip(TokenType::Semicolon);
 
         Some(ast::ExpressionStatement {
-            token,
             expression: expression?,
         })
     }
@@ -191,9 +187,7 @@ impl Parser {
             }
         };
 
-        while !self.peek_token().is(TokenType::Semicolon)
-            && precedence < TokenType::from(self.peek_token()).into()
-        {
+        while !self.peek_token().is(TokenType::Semicolon) && precedence < self.peek_token().into() {
             let token_type: TokenType = self.peek_token().into();
             let infix = *match self.infix_parse_fns.get(&token_type) {
                 None => return Some(left),
@@ -261,7 +255,7 @@ impl Parser {
 
     fn parse_prefix_expression(&mut self) -> Option<ast::Expression> {
         let token = self.cur_token.take().unwrap();
-        let operator: Operator = Operator::from(&token);
+        let operator = Operator::from(&token);
 
         self.next_token();
 
@@ -278,7 +272,7 @@ impl Parser {
         let token = self.cur_token.take().unwrap();
         let operator = Operator::from(&token);
 
-        let precedence = TokenType::from(&token).into();
+        let precedence = (&token).into();
         self.next_token();
         let right = Box::new(self.parse_expression(precedence)?);
 

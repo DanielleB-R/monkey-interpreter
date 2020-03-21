@@ -187,7 +187,7 @@ pub struct IntegerLiteral {
 
 impl Display for IntegerLiteral {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.token.literal())
+        write!(f, "{}", self.value)
     }
 }
 

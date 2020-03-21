@@ -70,9 +70,10 @@ impl Display for ReturnStatement {
     }
 }
 
+// ExpressionStatement, being just an Expression, does not have a
+// token associated with it
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExpressionStatement {
-    pub token: Token,
     pub expression: Expression,
 }
 
