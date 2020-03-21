@@ -9,3 +9,5 @@ edition = "2018"
 [dependencies]
 custom_error = "1"
 lazy_static = "1"
+strum = "0.18"
+strum_macros = "0.18"
