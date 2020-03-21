@@ -81,7 +81,7 @@ impl Object {
             Self::Boolean(_) => "BOOLEAN",
             Self::Integer(_) => "INTEGER",
             Self::String(_) => "STRING",
-            Self::Array(a) => "ARRAY",
+            Self::Array(_) => "ARRAY",
             Self::Null => "NULL",
         }
     }

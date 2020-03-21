@@ -1,5 +1,5 @@
 use super::{statement::BlockStatement, Identifier};
-use crate::token::{Token, TokenType};
+use crate::token::Token;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -162,6 +162,23 @@ impl From<&str> for Operator {
     }
 }
 
+impl From<&Token> for Operator {
+    fn from(input: &Token) -> Self {
+        match input {
+            Token::Bang => Self::Bang,
+            Token::Minus => Self::Minus,
+            Token::Plus => Self::Plus,
+            Token::Asterisk => Self::Asterisk,
+            Token::Slash => Self::Slash,
+            Token::LT => Self::LT,
+            Token::GT => Self::GT,
+            Token::Eq => Self::Eq,
+            Token::NotEq => Self::NotEq,
+            _ => panic!("invalid operator string"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct IntegerLiteral {
     pub token: Token,
@@ -170,7 +187,7 @@ pub struct IntegerLiteral {
 
 impl Display for IntegerLiteral {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.token.literal)
+        write!(f, "{}", self.token.literal())
     }
 }
 
@@ -215,9 +232,9 @@ impl Display for Boolean {
 
 impl From<Token> for Boolean {
     fn from(token: Token) -> Self {
-        let value = match token.token_type {
-            TokenType::True => true,
-            TokenType::False => false,
+        let value = match token {
+            Token::True => true,
+            Token::False => false,
             _ => panic!("converting non-boolean token to boolean expr"),
         };
         Self { token, value }
@@ -288,7 +305,7 @@ impl Display for StringLiteral {
 
 impl From<Token> for StringLiteral {
     fn from(token: Token) -> StringLiteral {
-        let value = token.literal.clone();
+        let value = token.literal().to_owned();
         StringLiteral { token, value }
     }
 }

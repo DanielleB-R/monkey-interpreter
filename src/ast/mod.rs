@@ -59,34 +59,31 @@ impl Display for Identifier {
 
 impl From<Token> for Identifier {
     fn from(token: Token) -> Self {
-        let value = token.literal.clone();
-        Self { token, value }
+        match token {
+            Token::Ident(literal) => {
+                let value = literal.clone();
+                Self {
+                    token: Token::Ident(literal),
+                    value,
+                }
+            }
+            _ => panic!("Not an identifier token"),
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::token::TokenType;
 
     #[test]
     fn test_display() {
         let program = Program {
             statements: vec![Statement::Let(LetStatement {
-                token: Token {
-                    token_type: TokenType::Let,
-                    literal: "let".to_owned(),
-                },
-                name: Token {
-                    token_type: TokenType::Ident,
-                    literal: "myVar".to_owned(),
-                }
-                .into(),
+                token: Token::Let,
+                name: Token::Ident("myVar".to_owned()).into(),
                 value: Expression::Identifier(Identifier {
-                    token: Token {
-                        token_type: TokenType::Ident,
-                        literal: "anotherVar".to_owned(),
-                    },
+                    token: Token::Ident("anotherVar".to_owned()),
                     value: "anotherVar".to_owned(),
                 }),
             })],

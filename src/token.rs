@@ -1,14 +1,16 @@
-use strum_macros::Display;
+use strum_macros::{Display, EnumDiscriminants};
 
-#[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TokenType {
-    Illegal,
+#[derive(Debug, Display, Clone, PartialEq, Eq, EnumDiscriminants)]
+#[strum_discriminants(derive(Hash))]
+#[strum_discriminants(name(TokenType))]
+pub enum Token {
+    Illegal(u8),
     Eof,
 
     // Identifiers and literals
-    Ident,
-    Int,
-    String,
+    Ident(String),
+    Int(String),
+    String(String),
 
     // Operators
     Assign,
@@ -43,10 +45,9 @@ pub enum TokenType {
     True,
 }
 
-impl TokenType {
-    pub fn type_for_name(name: &str) -> Self {
-        // TODO Realize with a hashmap
-        match name {
+impl From<&str> for Token {
+    fn from(text: &str) -> Self {
+        match text {
             "let" => Self::Let,
             "fn" => Self::Function,
             "if" => Self::If,
@@ -54,40 +55,20 @@ impl TokenType {
             "true" => Self::True,
             "else" => Self::Else,
             "false" => Self::False,
-            _ => Self::Ident,
+            identifier => Self::Ident(identifier.to_owned()),
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Token {
-    pub token_type: TokenType,
-    pub literal: String,
 }
 
 impl Token {
-    pub fn new(literal: &str) -> Self {
-        Self {
-            token_type: TokenType::type_for_name(literal),
-            literal: literal.to_owned(),
-        }
-    }
-
-    pub fn new_from_char(token_type: TokenType, ch: u8) -> Self {
-        Self {
-            token_type,
-            literal: String::from_utf8(vec![ch]).unwrap(),
-        }
-    }
-
-    pub fn eof() -> Self {
-        Self {
-            token_type: TokenType::Eof,
-            literal: "".to_owned(),
-        }
-    }
-
     pub fn is(&self, token_type: TokenType) -> bool {
-        self.token_type == token_type
+        TokenType::from(self) == token_type
+    }
+
+    pub fn literal(&self) -> &str {
+        match self {
+            Self::Ident(s) | Self::String(s) | Self::Int(s) => s,
+            _ => panic!("not implemented"),
+        }
     }
 }

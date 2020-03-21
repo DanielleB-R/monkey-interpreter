@@ -97,7 +97,7 @@ impl Parser {
     }
 
     fn cur_token_type(&self) -> TokenType {
-        self.cur_token.as_ref().unwrap().token_type
+        self.cur_token.as_ref().unwrap().into()
     }
 
     pub fn parse_program(mut self) -> Result<ast::Program, Vec<String>> {
@@ -192,9 +192,9 @@ impl Parser {
         };
 
         while !self.peek_token().is(TokenType::Semicolon)
-            && precedence < self.peek_token().token_type.into()
+            && precedence < TokenType::from(self.peek_token()).into()
         {
-            let token_type = self.peek_token().token_type;
+            let token_type: TokenType = self.peek_token().into();
             let infix = *match self.infix_parse_fns.get(&token_type) {
                 None => return Some(left),
                 Some(infix) => infix,
@@ -215,11 +215,11 @@ impl Parser {
     fn parse_integer_literal(&mut self) -> Option<ast::Expression> {
         let token = self.cur_token.take().unwrap();
 
-        let value: i64 = match token.literal.parse::<i64>() {
+        let value: i64 = match token.literal().parse::<i64>() {
             Ok(v) => v,
             Err(_) => {
                 self.errors
-                    .push(format!("could not parse {} as integer", token.literal));
+                    .push(format!("could not parse {} as integer", token.literal()));
                 return None;
             }
         };
@@ -245,7 +245,7 @@ impl Parser {
     }
 
     fn peek_error(&mut self, expected: TokenType) {
-        let token_type = self.peek_token().token_type;
+        let token_type: TokenType = self.peek_token().into();
         self.errors.push(format!(
             "expected next token to be {:?}, got {:?} instead",
             expected, token_type
@@ -261,7 +261,7 @@ impl Parser {
 
     fn parse_prefix_expression(&mut self) -> Option<ast::Expression> {
         let token = self.cur_token.take().unwrap();
-        let operator: Operator = Operator::from(token.literal.as_ref());
+        let operator: Operator = Operator::from(&token);
 
         self.next_token();
 
@@ -276,9 +276,9 @@ impl Parser {
 
     fn parse_infix_expression(&mut self, left: ast::Expression) -> Option<ast::Expression> {
         let token = self.cur_token.take().unwrap();
-        let operator = Operator::from(token.literal.as_ref());
+        let operator = Operator::from(&token);
 
-        let precedence = token.token_type.into();
+        let precedence = TokenType::from(&token).into();
         self.next_token();
         let right = Box::new(self.parse_expression(precedence)?);
 
@@ -474,6 +474,7 @@ impl Parser {
 mod test {
     use super::*;
     use crate::lexer::Lexer;
+    use crate::token::Token;
 
     #[test]
     fn test_let_statements() {
@@ -505,9 +506,9 @@ let foobar = y;
     fn test_let_statement(stmt: &Statement, name: &str) {
         let let_stmt = stmt.pull_let();
 
-        assert_eq!(let_stmt.token.literal, "let");
+        assert_eq!(let_stmt.token, Token::Let);
         assert_eq!(let_stmt.name.value, name);
-        assert_eq!(let_stmt.name.token.literal, name);
+        assert_eq!(let_stmt.name.token.literal(), name);
     }
 
     #[test]
@@ -532,7 +533,7 @@ return foobar;
 
         for (stmt, value) in program.statements.iter().zip(expected.iter()) {
             let ret_stmt = stmt.pull_return();
-            assert_eq!(ret_stmt.token.literal, "return");
+            assert_eq!(ret_stmt.token, Token::Return);
             value.test(&ret_stmt.return_value);
         }
     }
@@ -592,7 +593,7 @@ return foobar;
     fn test_integer_literal(expr: &ast::Expression, value: i64) {
         let literal = expr.pull_integer();
         assert_eq!(literal.value, value);
-        assert_eq!(literal.token.literal, value.to_string());
+        assert_eq!(literal.token.literal(), value.to_string());
     }
 
     #[test]
@@ -783,7 +784,7 @@ return foobar;
     fn test_identifier(exp: &ast::Expression, value: &str) {
         let ident = exp.pull_identifier();
         assert_eq!(ident.value, value);
-        assert_eq!(ident.token.literal, value);
+        assert_eq!(ident.token.literal(), value);
     }
 
     enum Expected<'a> {
@@ -805,7 +806,6 @@ return foobar;
     fn test_boolean_literal(exp: &ast::Expression, value: bool) {
         let b = exp.pull_boolean();
         assert_eq!(b.value, value);
-        assert_eq!(b.token.literal, value.to_string());
     }
 
     fn test_infix_expression(

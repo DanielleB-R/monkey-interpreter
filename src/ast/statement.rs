@@ -54,7 +54,7 @@ pub struct LetStatement {
 
 impl Display for LetStatement {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{} {} = {};", self.token.literal, self.name, self.value)
+        write!(f, "let {} = {};", self.name, self.value)
     }
 }
 
@@ -66,7 +66,7 @@ pub struct ReturnStatement {
 
 impl Display for ReturnStatement {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{} {};", self.token.literal, self.return_value)
+        write!(f, "return {};", self.return_value)
     }
 }
 
