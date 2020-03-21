@@ -40,7 +40,7 @@ pub struct Parser {
     lexer: std::iter::Peekable<lexer::Lexer>,
     errors: Vec<String>,
 
-    cur_token: token::Token,
+    cur_token: Option<token::Token>,
 
     prefix_parse_fns: HashMap<TokenType, PrefixParseFn>,
     infix_parse_fns: HashMap<TokenType, InfixParseFn>,
@@ -48,7 +48,7 @@ pub struct Parser {
 
 impl Parser {
     pub fn new(mut lexer: lexer::Lexer) -> Self {
-        let cur_token = lexer.next().unwrap();
+        let cur_token = Some(lexer.next().unwrap());
 
         let mut prefix_parse_fns: HashMap<TokenType, PrefixParseFn> = Default::default();
         prefix_parse_fns.insert(TokenType::Ident, Self::parse_identifier);
@@ -85,17 +85,25 @@ impl Parser {
     }
 
     fn next_token(&mut self) {
-        self.cur_token = self.lexer.next().unwrap();
+        self.cur_token = Some(self.lexer.next().unwrap());
     }
 
     fn peek_token(&mut self) -> &token::Token {
         self.lexer.peek().unwrap()
     }
 
+    fn cur_token_is(&self, token_type: TokenType) -> bool {
+        self.cur_token.as_ref().unwrap().is(token_type)
+    }
+
+    fn cur_token_type(&self) -> TokenType {
+        self.cur_token.as_ref().unwrap().token_type
+    }
+
     pub fn parse_program(mut self) -> Result<ast::Program, Vec<String>> {
         let mut program = ast::Program::default();
 
-        while !self.cur_token.is(TokenType::Eof) {
+        while !self.cur_token_is(TokenType::Eof) {
             if let Some(stmt) = self.parse_statement() {
                 program.statements.push(stmt)
             }
@@ -110,7 +118,7 @@ impl Parser {
     }
 
     fn parse_statement(&mut self) -> Option<Statement> {
-        match self.cur_token.token_type {
+        match self.cur_token_type() {
             TokenType::Let => self.parse_let_statement().map(Statement::Let),
             TokenType::Return => self.parse_return_statement().map(Statement::Return),
             _ => self.parse_expression_statement().map(Statement::Expr),
@@ -118,13 +126,13 @@ impl Parser {
     }
 
     fn parse_let_statement(&mut self) -> Option<ast::LetStatement> {
-        let token = self.cur_token.clone();
+        let token = self.cur_token.take().unwrap().into();
 
         if !self.expect_peek(TokenType::Ident) {
             return None;
         }
 
-        let name = self.cur_token.clone().into();
+        let name = self.cur_token.take().unwrap().into();
 
         if !self.expect_peek(TokenType::Assign) {
             return None;
@@ -142,7 +150,7 @@ impl Parser {
     }
 
     fn parse_return_statement(&mut self) -> Option<ast::ReturnStatement> {
-        let token = self.cur_token.clone();
+        let token = self.cur_token.take().unwrap();
 
         self.next_token();
 
@@ -159,7 +167,8 @@ impl Parser {
     }
 
     fn parse_expression_statement(&mut self) -> Option<ast::ExpressionStatement> {
-        let token = self.cur_token.clone();
+        // The expression also needs the token so we need a copy
+        let token = self.cur_token.clone().unwrap();
 
         let expression = self.parse_expression(Precedence::Lowest);
 
@@ -174,10 +183,10 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Option<ast::Expression> {
-        let mut left = match self.prefix_parse_fns.get(&self.cur_token.token_type) {
+        let mut left = match self.prefix_parse_fns.get(&self.cur_token_type()) {
             Some(prefix) => prefix(self)?,
             None => {
-                self.no_prefix_parse_fn_error(self.cur_token.token_type);
+                self.no_prefix_parse_fn_error(self.cur_token_type());
                 return None;
             }
         };
@@ -198,19 +207,19 @@ impl Parser {
     }
 
     fn parse_identifier(&mut self) -> Option<ast::Expression> {
-        Some(Expression::Identifier(self.cur_token.clone().into()))
+        Some(Expression::Identifier(
+            self.cur_token.take().unwrap().into(),
+        ))
     }
 
     fn parse_integer_literal(&mut self) -> Option<ast::Expression> {
-        let token = self.cur_token.clone();
+        let token = self.cur_token.take().unwrap();
 
-        let value: i64 = match self.cur_token.literal.parse::<i64>() {
+        let value: i64 = match token.literal.parse::<i64>() {
             Ok(v) => v,
             Err(_) => {
-                self.errors.push(format!(
-                    "could not parse {} as integer",
-                    self.cur_token.literal
-                ));
+                self.errors
+                    .push(format!("could not parse {} as integer", token.literal));
                 return None;
             }
         };
@@ -222,7 +231,7 @@ impl Parser {
     }
 
     fn parse_boolean(&mut self) -> Option<ast::Expression> {
-        Some(Expression::Boolean(self.cur_token.clone().into()))
+        Some(Expression::Boolean(self.cur_token.take().unwrap().into()))
     }
 
     fn expect_peek(&mut self, expected: TokenType) -> bool {
@@ -251,7 +260,7 @@ impl Parser {
     }
 
     fn parse_prefix_expression(&mut self) -> Option<ast::Expression> {
-        let token = self.cur_token.clone();
+        let token = self.cur_token.take().unwrap();
         let operator: Operator = Operator::from(token.literal.as_ref());
 
         self.next_token();
@@ -266,10 +275,10 @@ impl Parser {
     }
 
     fn parse_infix_expression(&mut self, left: ast::Expression) -> Option<ast::Expression> {
-        let token = self.cur_token.clone();
+        let token = self.cur_token.take().unwrap();
         let operator = Operator::from(token.literal.as_ref());
 
-        let precedence = self.cur_token.token_type.into();
+        let precedence = token.token_type.into();
         self.next_token();
         let right = Box::new(self.parse_expression(precedence)?);
 
@@ -294,7 +303,7 @@ impl Parser {
     }
 
     fn parse_if_expression(&mut self) -> Option<ast::Expression> {
-        let token = self.cur_token.clone();
+        let token = self.cur_token.take().unwrap();
 
         if !self.expect_peek(TokenType::LParen) {
             return None;
@@ -334,12 +343,12 @@ impl Parser {
     }
 
     fn parse_block_statement(&mut self) -> ast::BlockStatement {
-        let token = self.cur_token.clone();
+        let token = self.cur_token.take().unwrap();
         let mut statements = vec![];
 
         self.next_token();
 
-        while !self.cur_token.is(TokenType::RBrace) && !self.cur_token.is(TokenType::Eof) {
+        while !self.cur_token_is(TokenType::RBrace) && !self.cur_token_is(TokenType::Eof) {
             if let Some(stmt) = self.parse_statement() {
                 statements.push(stmt);
             }
@@ -350,7 +359,7 @@ impl Parser {
     }
 
     fn parse_function_literal(&mut self) -> Option<ast::Expression> {
-        let token = self.cur_token.clone();
+        let token = self.cur_token.take().unwrap();
 
         if !self.expect_peek(TokenType::LParen) {
             return None;
@@ -380,12 +389,12 @@ impl Parser {
 
         self.next_token();
 
-        identifiers.push(self.cur_token.clone().into());
+        identifiers.push(self.cur_token.take().unwrap().into());
 
         while self.peek_token().is(TokenType::Comma) {
             self.next_token();
             self.next_token();
-            identifiers.push(self.cur_token.clone().into());
+            identifiers.push(self.cur_token.take().unwrap().into());
         }
 
         if self.expect_peek(TokenType::RParen) {
@@ -396,7 +405,7 @@ impl Parser {
     }
 
     fn parse_call_expression(&mut self, function: ast::Expression) -> Option<ast::Expression> {
-        let token = self.cur_token.clone();
+        let token = self.cur_token.take().unwrap();
         let arguments = self.parse_expression_list(TokenType::RParen)?;
 
         Some(Expression::Call(ast::CallExpression {
@@ -432,17 +441,19 @@ impl Parser {
     }
 
     fn parse_string_literal(&mut self) -> Option<ast::Expression> {
-        Some(ast::Expression::String(self.cur_token.clone().into()))
+        Some(ast::Expression::String(
+            self.cur_token.take().unwrap().into(),
+        ))
     }
 
     fn parse_array_literal(&mut self) -> Option<ast::Expression> {
-        let token = self.cur_token.clone();
+        let token = self.cur_token.take().unwrap();
         let elements = self.parse_expression_list(TokenType::RBracket)?;
         Some(Expression::Array(ast::ArrayLiteral { token, elements }))
     }
 
     fn parse_index_expression(&mut self, left: ast::Expression) -> Option<ast::Expression> {
-        let token = self.cur_token.clone();
+        let token = self.cur_token.take().unwrap();
 
         self.next_token();
         let index = self.parse_expression(Precedence::Lowest)?;
