@@ -64,10 +64,10 @@ fn rest(args: Vec<Object>) -> Result<Object> {
 
     match args.into_iter().next().unwrap() {
         Object::Array(a) => {
-            if a.len() > 0 {
-                Ok(Object::Array(a.into_iter().skip(1).collect()))
-            } else {
+            if a.is_empty() {
                 Ok(Object::Null)
+            } else {
+                Ok(Object::Array(a.into_iter().skip(1).collect()))
             }
         }
         obj => Err(EvalError::UnsupportedArgType {
@@ -88,7 +88,7 @@ fn push(args: Vec<Object>) -> Result<Object> {
     let mut args_iter = args.into_iter();
     match args_iter.next().unwrap() {
         Object::Array(a) => {
-            let mut result = a.clone();
+            let mut result = a;
             result.push(args_iter.next().unwrap());
             Ok(Object::Array(result))
         }
@@ -99,13 +99,22 @@ fn push(args: Vec<Object>) -> Result<Object> {
     }
 }
 
+fn puts(args: Vec<Object>) -> Result<Object> {
+    for arg in args.into_iter() {
+        println!("{}", arg);
+    }
+
+    Ok(Object::Null)
+}
+
 lazy_static! {
     pub static ref BUILTINS: HashMap<String, Object> = vec![
         ("len".to_owned(), Object::Builtin(len)),
         ("first".to_owned(), Object::Builtin(first)),
         ("last".to_owned(), Object::Builtin(last)),
         ("rest".to_owned(), Object::Builtin(rest)),
-        ("push".to_owned(), Object::Builtin(push))
+        ("push".to_owned(), Object::Builtin(push)),
+        ("puts".to_owned(), Object::Builtin(puts)),
     ]
     .into_iter()
     .collect();
