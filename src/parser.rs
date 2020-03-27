@@ -62,6 +62,7 @@ impl Parser {
         prefix_parse_fns.insert(TokenType::Function, Self::parse_function_literal);
         prefix_parse_fns.insert(TokenType::String, Self::parse_string_literal);
         prefix_parse_fns.insert(TokenType::LBracket, Self::parse_array_literal);
+        prefix_parse_fns.insert(TokenType::LBrace, Self::parse_hash_literal);
 
         let mut infix_parse_fns: HashMap<TokenType, InfixParseFn> = Default::default();
         infix_parse_fns.insert(TokenType::Plus, Self::parse_infix_expression);
@@ -458,6 +459,35 @@ impl Parser {
                 left: Box::new(left),
                 index: Box::new(index),
             }))
+        } else {
+            None
+        }
+    }
+
+    fn parse_hash_literal(&mut self) -> Option<ast::Expression> {
+        let token = self.cur_token.take().unwrap();
+        let mut pairs = vec![];
+
+        while !self.peek_token().is(TokenType::RBrace) {
+            self.next_token();
+
+            let key = self.parse_expression(Precedence::Lowest)?;
+
+            if !self.expect_peek(TokenType::Colon) {
+                return None;
+            }
+
+            self.next_token();
+            let value = self.parse_expression(Precedence::Lowest)?;
+            pairs.push((key, value));
+
+            if !self.peek_token().is(TokenType::RBrace) && !self.expect_peek(TokenType::Comma) {
+                return None;
+            }
+        }
+
+        if self.expect_peek(TokenType::RBrace) {
+            Some(Expression::Hash(ast::HashLiteral { token, pairs }))
         } else {
             None
         }
@@ -1019,5 +1049,37 @@ return foobar;
             Operator::Plus,
             &Expected::Int(1),
         );
+    }
+
+    #[test]
+    fn test_parsing_hash_literals_string_keys() {
+        let input = "{\"one\": 1, \"two\": 2, \"three\": 3}".to_owned();
+
+        let program = Parser::new(Lexer::new(input))
+            .parse_program()
+            .expect("Parse errors found");
+
+        let hash = program.statements[0].pull_expr().expression.pull_hash();
+
+        assert_eq!(hash.pairs.len(), 3);
+        assert_eq!(hash.pairs[0].0.pull_string().value, "one");
+        assert_eq!(hash.pairs[0].1.pull_integer().value, 1);
+        assert_eq!(hash.pairs[1].0.pull_string().value, "two");
+        assert_eq!(hash.pairs[1].1.pull_integer().value, 2);
+        assert_eq!(hash.pairs[2].0.pull_string().value, "three");
+        assert_eq!(hash.pairs[2].1.pull_integer().value, 3);
+    }
+
+    #[test]
+    fn test_parsing_empty_hash_literal() {
+        let input = "{}".to_owned();
+
+        let program = Parser::new(Lexer::new(input))
+            .parse_program()
+            .expect("Parse errors found");
+
+        let hash = program.statements[0].pull_expr().expression.pull_hash();
+
+        assert_eq!(hash.pairs.len(), 0);
     }
 }

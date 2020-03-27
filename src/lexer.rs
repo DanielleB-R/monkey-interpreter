@@ -71,6 +71,7 @@ impl Lexer {
             b'(' => Token::LParen,
             b')' => Token::RParen,
             b',' => Token::Comma,
+            b':' => Token::Colon,
             b'{' => Token::LBrace,
             b'}' => Token::RBrace,
             b'[' => Token::LBracket,
@@ -154,6 +155,7 @@ if (5 < 10) {
 \"foobar\"
 \"foo bar\"
 [1, 2];
+{\"foo\": \"bar\"}
 "
         .to_owned();
 
@@ -239,6 +241,11 @@ if (5 < 10) {
             Token::Int("2".to_owned()),
             Token::RBracket,
             Token::Semicolon,
+            Token::LBrace,
+            Token::String("foo".to_owned()),
+            Token::Colon,
+            Token::String("bar".to_owned()),
+            Token::RBrace,
             Token::Eof,
         ];
 

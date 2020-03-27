@@ -1,7 +1,9 @@
 use crate::ast::{self, Node};
 use crate::builtins::BUILTINS;
 use crate::environment::Environment;
-use crate::object::{EvalError, FunctionObject, Object, Result};
+use crate::object::{EvalError, FunctionObject, HashKey, HashValue, Object, Result};
+use std::collections::HashMap;
+use std::convert::TryInto;
 
 pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
     match node {
@@ -51,6 +53,7 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
             }
             ast::Expression::String(s) => Ok(Object::String(s.value)),
             ast::Expression::Array(a) => eval_expressions(a.elements, env).map(Object::Array),
+            ast::Expression::Hash(h) => eval_hash_literal(h.pairs, env),
             ast::Expression::Index(i) => {
                 let left = eval((*i.left).into(), env)?;
                 let index = eval((*i.index).into(), env)?;
@@ -225,6 +228,7 @@ fn extend_function_env(func: &FunctionObject, args: Vec<Object>) -> Environment 
 fn eval_index_expression(array: Object, index: Object) -> Result<Object> {
     match (array, index) {
         (Object::Array(arr), Object::Integer(n)) => eval_array_index_expression(arr, n),
+        (Object::Hash(h), ind) => eval_hash_index_expression(h, ind),
         (a, _) => Err(EvalError::NotIndexable {
             type_name: a.type_name(),
         }),
@@ -237,6 +241,30 @@ fn eval_array_index_expression(array: Vec<Object>, index: i64) -> Result<Object>
     } else {
         Ok(Object::Null)
     }
+}
+
+fn eval_hash_index_expression(hash: HashValue, index: Object) -> Result<Object> {
+    Ok(hash
+        .values
+        .get(&index.try_into()?)
+        .cloned()
+        .unwrap_or_default())
+}
+
+fn eval_hash_literal(
+    hash: Vec<(ast::Expression, ast::Expression)>,
+    env: &mut Environment,
+) -> Result<Object> {
+    let mut map = HashMap::new();
+
+    for (key_expr, val_expr) in hash.into_iter() {
+        let key = eval(key_expr.into(), env)?;
+        let value = eval(val_expr.into(), env)?;
+
+        map.insert(key.try_into()?, value);
+    }
+
+    Ok(Object::Hash(HashValue { values: map }))
 }
 
 #[cfg(test)]
@@ -435,6 +463,12 @@ if (10 > 1) {
                     right: "STRING",
                 },
             ),
+            (
+                "{\"name\": \"Monkey\"}[fn(x) { x }];",
+                EvalError::NotHashable {
+                    type_name: "FUNCTION",
+                },
+            ),
         ];
 
         for (input, err) in cases.into_iter() {
@@ -609,6 +643,50 @@ addTwo(2);
             ),
             ("[1, 2, 3][3]", Object::Null),
             ("[1, 2, 3][-1]", Object::Null),
+        ];
+
+        for (input, output) in cases.into_iter() {
+            assert_eq!(test_eval(input).unwrap(), output);
+        }
+    }
+
+    #[test]
+    fn test_hash_literals() {
+        let input = "let two = \"two\";
+{
+  \"one\": 10 - 9,
+  two: 1 + 1,
+  \"thr\" + \"ee\": 6 / 2,
+  4: 4,
+  true: 5,
+  false: 6
+}";
+
+        assert_eq!(
+            test_eval(input).unwrap(),
+            Object::Hash(HashValue {
+                values: vec![
+                    (HashKey::String("one".to_owned()), Object::Integer(1)),
+                    (HashKey::String("two".to_owned()), Object::Integer(2)),
+                    (HashKey::String("three".to_owned()), Object::Integer(3)),
+                    (HashKey::Integer(4), Object::Integer(4)),
+                    (HashKey::Boolean(true), Object::Integer(5)),
+                    (HashKey::Boolean(false), Object::Integer(6)),
+                ]
+                .into_iter()
+                .collect()
+            })
+        );
+    }
+
+    #[test]
+    fn test_hash_index_expressions() {
+        let cases = vec![
+            ("{\"foo\": 5}[\"foo\"]", Object::Integer(5)),
+            ("{\"foo\": 5}[\"bar\"]", Object::Null),
+            ("let key = \"foo\"; {\"foo\": 5}[key]", Object::Integer(5)),
+            ("{}[\"foo\"]", Object::Null),
+            ("{5: 5}[5]", Object::Integer(5)),
         ];
 
         for (input, output) in cases.into_iter() {

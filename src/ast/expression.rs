@@ -15,6 +15,7 @@ pub enum Expression {
     Array(ArrayLiteral),
     String(StringLiteral),
     Index(IndexExpression),
+    Hash(HashLiteral),
 }
 
 impl Display for Expression {
@@ -31,6 +32,7 @@ impl Display for Expression {
             Self::Array(expr) => write!(f, "{}", expr),
             Self::String(expr) => write!(f, "{}", expr),
             Self::Index(expr) => write!(f, "{}", expr),
+            Self::Hash(expr) => write!(f, "{}", expr),
         }
     }
 }
@@ -108,6 +110,12 @@ impl Expression {
         match self {
             Self::Array(expr) => expr,
             _ => panic!("expected array expression"),
+        }
+    }
+    pub fn pull_hash(&self) -> &HashLiteral {
+        match self {
+            Self::Hash(expr) => expr,
+            _ => panic!("expected hash expression"),
         }
     }
 }
@@ -352,5 +360,22 @@ pub struct IndexExpression {
 impl Display for IndexExpression {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "({}[{}])", self.left, self.index)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HashLiteral {
+    pub token: Token,
+    pub pairs: Vec<(Expression, Expression)>,
+}
+
+impl Display for HashLiteral {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        let argument_names: Vec<String> = self
+            .pairs
+            .iter()
+            .map(|(key, value)| format!("{}:{}", key, value))
+            .collect();
+        write!(f, "{{{}}}", argument_names.join(", "))
     }
 }

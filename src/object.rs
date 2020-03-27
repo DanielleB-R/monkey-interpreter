@@ -1,6 +1,8 @@
 use crate::ast;
 use crate::environment::Environment;
 use custom_error::custom_error;
+use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::fmt::{self, Display, Formatter};
 
 custom_error! {
@@ -15,6 +17,7 @@ custom_error! {
     UnsupportedArgType{fn_name: &'static str, type_name: &'static str} = "argument to `{fn_name}` not supported, got {type_name}",
     IncorrectArity{got: usize, want: usize} = "wrong number of arguments. got={got}, want={want}",
     NotIndexable{type_name: &'static str} = "index operator not supported: {type_name}",
+    NotHashable{type_name: &'static str} = "unusable as hash key: {type_name}",
 }
 
 pub type Result<T> = std::result::Result<T, EvalError>;
@@ -30,6 +33,7 @@ pub enum Object {
     Boolean(bool),
     String(String),
     Array(Vec<Object>),
+    Hash(HashValue),
     Null,
 }
 
@@ -47,6 +51,7 @@ impl Display for Object {
 
                 write!(f, "[{}]", identifier_names.join(", "))
             }
+            Self::Hash(h) => write!(f, "{}", h),
             Self::Null => write!(f, "null"),
         }
     }
@@ -82,6 +87,7 @@ impl Object {
             Self::Integer(_) => "INTEGER",
             Self::String(_) => "STRING",
             Self::Array(_) => "ARRAY",
+            Self::Hash(_) => "HASH",
             Self::Null => "NULL",
         }
     }
@@ -103,5 +109,54 @@ impl Display for FunctionObject {
             .collect();
 
         write!(f, "fn({}) {}", identifier_names.join(", "), self.body)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum HashKey {
+    String(String),
+    Integer(i64),
+    Boolean(bool),
+}
+
+impl Display for HashKey {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Integer(n) => write!(f, "{}", n),
+            Self::Boolean(b) => write!(f, "{}", b),
+            Self::String(s) => write!(f, "{}", s),
+        }
+    }
+}
+
+impl TryFrom<Object> for HashKey {
+    type Error = EvalError;
+
+    fn try_from(obj: Object) -> std::result::Result<Self, Self::Error> {
+        match obj {
+            Object::String(s) => Ok(Self::String(s)),
+            Object::Integer(s) => Ok(Self::Integer(s)),
+            Object::Boolean(s) => Ok(Self::Boolean(s)),
+            o => Err(EvalError::NotHashable {
+                type_name: o.type_name(),
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HashValue {
+    pub values: HashMap<HashKey, Object>,
+}
+
+impl Display for HashValue {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let identifier_names: Vec<String> = self
+            .values
+            .iter()
+            .map(|(key, value)| format!("{}: {}", key, value))
+            .collect();
+
+        write!(f, "{{{}}}", identifier_names.join(", "))
     }
 }
