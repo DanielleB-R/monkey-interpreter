@@ -1,5 +1,5 @@
-use crate::ast::Node;
-use crate::code::Instructions;
+use crate::ast::{Expression, Node, Statement};
+use crate::code::{self, BytecodeError, Instructions, Opcode};
 use crate::object::Object;
 
 #[derive(Debug, Clone, Default)]
@@ -9,8 +9,47 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn compile(&mut self, node: Node) -> Result<(), ()> {
+    pub fn compile(&mut self, node: Node) -> Result<(), BytecodeError> {
+        match node {
+            Node::Program(p) => {
+                for stmt in p.statements {
+                    self.compile(stmt.into())?;
+                }
+            }
+            Node::Statement(stmt) => match stmt {
+                Statement::Expr(e) => self.compile(e.expression.into())?,
+                _ => panic!("unimplemented"),
+            },
+            Node::Expression(expr) => match expr {
+                Expression::Infix(infix) => {
+                    self.compile((*infix.left).into())?;
+                    self.compile((*infix.right).into())?;
+                }
+                Expression::IntegerLiteral(int) => {
+                    let constant = self.add_constant(Object::Integer(int.value));
+                    self.emit(Opcode::Constant, &[constant]);
+                }
+                _ => panic!("unimplemented"),
+            },
+        }
+
         Ok(())
+    }
+
+    pub fn add_constant(&mut self, obj: Object) -> isize {
+        self.constants.push(obj);
+        (self.constants.len() - 1) as isize
+    }
+
+    pub fn emit(&mut self, op: Opcode, operands: &[isize]) -> Option<usize> {
+        let ins = code::make(op, operands)?;
+        Some(self.add_instruction(ins))
+    }
+
+    pub fn add_instruction(&mut self, ins: Instructions) -> usize {
+        let pos = self.instructions.len();
+        self.instructions.append(ins);
+        pos
     }
 
     pub fn bytecode(self) -> Bytecode {
@@ -71,6 +110,8 @@ mod test {
     fn test_instructions(expected: Vec<Instructions>, actual: Instructions) {
         let concatted = concat_instructions(expected);
 
-        assert_eq!(concatted, actual);
+        if concatted != actual {
+            panic!(format!("Expected {}, received {}", concatted, actual));
+        }
     }
 }

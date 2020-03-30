@@ -67,13 +67,41 @@ impl IntoIterator for Instructions {
 
 impl Display for Instructions {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut i = 0;
+        while i < self.0.len() {
+            // TODO do this error handling right
+            let op = lookup(self.0[i]).unwrap();
+            let (operands, read) = read_operands(op, &self.0[(i + 1)..]);
+            writeln!(f, "{:04} {}", i, self.fmt_instruction(op, &operands))?;
+            i += 1 + read;
+        }
         Ok(())
     }
 }
 
 impl Instructions {
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    fn fmt_instruction(&self, op: Opcode, operands: &[isize]) -> String {
+        let operand_count = op.operand_widths().unwrap().len();
+        if operand_count == operands.len() {
+            match operand_count {
+                1 => format!("{} {}", op, operands[0]),
+                n => format!("ERROR unhandled operand count {}\n", n),
+            }
+        } else {
+            format!(
+                "ERROR operand len {} doesn't match defined {}\n",
+                operands.len(),
+                operand_count
+            )
+        }
+    }
+
+    pub fn append(&mut self, additional: Self) {
+        self.0.extend_from_slice(&additional.0);
     }
 }
 
@@ -94,6 +122,28 @@ pub fn make(op: Opcode, operands: &[isize]) -> Option<Instructions> {
 
 pub fn concat_instructions(data: Vec<Instructions>) -> Instructions {
     data.into_iter().flatten().collect::<Vec<u8>>().into()
+}
+
+pub fn read_operands(op: Opcode, bytecode: &[u8]) -> (Vec<isize>, usize) {
+    let mut operands = vec![];
+    let mut offset = 0;
+
+    for width in op.operand_widths().unwrap() {
+        match width {
+            2 => {
+                operands.push(read_u16(&bytecode[offset..]) as isize);
+            }
+            _ => panic!("not implemented"),
+        }
+
+        offset += width;
+    }
+
+    (operands, offset)
+}
+
+pub fn read_u16(bytecode: &[u8]) -> u16 {
+    u16::from_be_bytes([bytecode[0], bytecode[1]])
 }
 
 #[cfg(test)]
@@ -133,5 +183,18 @@ mod test {
 ";
 
         assert_eq!(concat_instructions(insts).to_string(), expected);
+    }
+
+    #[test]
+    fn test_read_operands() {
+        let cases = vec![(Opcode::Constant, &[65535], 2)];
+
+        for (op, operands, bytes_read) in cases {
+            let instruction = make(op, operands).unwrap();
+
+            let (operands_read, n) = read_operands(op, &instruction.0[1..]);
+            assert_eq!(n, bytes_read);
+            assert_eq!(operands_read, operands);
+        }
     }
 }
