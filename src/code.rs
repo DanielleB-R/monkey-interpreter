@@ -47,7 +47,37 @@ pub fn lookup(op: u8) -> Result<Opcode, BytecodeError> {
     op.try_into()
 }
 
-pub fn make(op: Opcode, operands: &[isize]) -> Option<Vec<u8>> {
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Instructions(Vec<u8>);
+
+impl From<Vec<u8>> for Instructions {
+    fn from(v: Vec<u8>) -> Self {
+        Self(v)
+    }
+}
+
+impl IntoIterator for Instructions {
+    type Item = u8;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl Display for Instructions {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Ok(())
+    }
+}
+
+impl Instructions {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+pub fn make(op: Opcode, operands: &[isize]) -> Option<Instructions> {
     let widths = op.operand_widths()?;
 
     let mut instruction = vec![op as u8];
@@ -59,7 +89,11 @@ pub fn make(op: Opcode, operands: &[isize]) -> Option<Vec<u8>> {
         }
     }
 
-    Some(instruction)
+    Some(instruction.into())
+}
+
+pub fn concat_instructions(data: Vec<Instructions>) -> Instructions {
+    data.into_iter().flatten().collect::<Vec<u8>>().into()
 }
 
 #[cfg(test)]
@@ -83,5 +117,21 @@ mod test {
                 assert_eq!(*expected, actual);
             }
         }
+    }
+
+    #[test]
+    fn test_instructions_display() {
+        let insts = vec![
+            make(Opcode::Constant, &[1]).unwrap(),
+            make(Opcode::Constant, &[2]).unwrap(),
+            make(Opcode::Constant, &[65535]).unwrap(),
+        ];
+
+        let expected = "0000 Constant 1
+0003 Constant 2
+0006 Constant 65535
+";
+
+        assert_eq!(concat_instructions(insts).to_string(), expected);
     }
 }

@@ -1,6 +1,7 @@
 mod ast;
 mod builtins;
 mod code;
+mod compiler;
 mod environment;
 mod evaluator;
 mod lexer;
