@@ -1,6 +1,7 @@
 use custom_error::custom_error;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::{self, Display, Formatter};
+use std::ops::{Index, RangeFrom};
 
 custom_error! {
     pub BytecodeError
@@ -62,6 +63,22 @@ impl IntoIterator for Instructions {
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+impl Index<usize> for Instructions {
+    type Output = u8;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl Index<RangeFrom<usize>> for Instructions {
+    type Output = [u8];
+
+    fn index(&self, index: RangeFrom<usize>) -> &Self::Output {
+        &self.0[index]
     }
 }
 
