@@ -1,4 +1,4 @@
-use crate::ast::{Expression, Node, Statement};
+use crate::ast::{Expression, Node, Operator, Statement};
 use crate::code::{self, BytecodeError, Instructions, Opcode};
 use crate::object::Object;
 
@@ -24,6 +24,11 @@ impl Compiler {
                 Expression::Infix(infix) => {
                     self.compile((*infix.left).into())?;
                     self.compile((*infix.right).into())?;
+
+                    match infix.operator {
+                        Operator::Plus => self.emit(Opcode::Add, &[]),
+                        _ => panic!("unknown operator"),
+                    };
                 }
                 Expression::IntegerLiteral(int) => {
                     let constant = self.add_constant(Object::Integer(int.value));
@@ -82,6 +87,7 @@ mod test {
             vec![
                 code::make(Opcode::Constant, &[0]).unwrap(),
                 code::make(Opcode::Constant, &[1]).unwrap(),
+                code::make(Opcode::Add, &[]).unwrap(),
             ],
         )];
 

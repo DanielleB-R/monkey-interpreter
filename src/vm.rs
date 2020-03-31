@@ -43,7 +43,18 @@ impl VM {
                     ip += 2;
                     self.push(self.constants[const_index as usize].clone())?;
                 }
+                Opcode::Add => {
+                    let right = self.pop();
+                    let left = self.pop();
+                    match (left, right) {
+                        (Object::Integer(l), Object::Integer(r)) => {
+                            self.push(Object::Integer(l + r))?
+                        }
+                        _ => return Err(()),
+                    }
+                }
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
+                _ => panic!("unimplemented"),
             }
             ip += 1;
         }
@@ -59,6 +70,12 @@ impl VM {
         self.sp += 1;
 
         Ok(())
+    }
+
+    fn pop(&mut self) -> Object {
+        let obj = self.stack[self.sp - 1].clone();
+        self.sp -= 1;
+        obj
     }
 }
 
@@ -76,7 +93,7 @@ mod test {
         let cases = vec![
             ("1", Object::Integer(1)),
             ("2", Object::Integer(2)),
-            ("1 + 2", Object::Integer(2)), // FIXME
+            ("1 + 2", Object::Integer(3)),
         ];
 
         run_vm_tests(cases);

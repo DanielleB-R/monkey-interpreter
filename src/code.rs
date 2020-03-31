@@ -13,6 +13,7 @@ custom_error! {
 #[repr(u8)]
 pub enum Opcode {
     Constant,
+    Add,
     Maximum,
 }
 
@@ -20,6 +21,7 @@ impl Opcode {
     pub fn operand_widths(&self) -> Option<&'static [usize]> {
         match self {
             Self::Constant => Some(&[2]),
+            Self::Add => Some(&[]),
             _ => None,
         }
     }
@@ -105,6 +107,7 @@ impl Instructions {
         let operand_count = op.operand_widths().unwrap().len();
         if operand_count == operands.len() {
             match operand_count {
+                0 => format!("{}", op),
                 1 => format!("{} {}", op, operands[0]),
                 n => format!("ERROR unhandled operand count {}\n", n),
             }
@@ -169,19 +172,22 @@ mod test {
 
     #[test]
     fn test_make() {
-        let cases = vec![(
-            Opcode::Constant,
-            &[65534],
-            &[Opcode::Constant as u8, 255, 254],
-        )];
+        let cases = vec![
+            (
+                Opcode::Constant,
+                vec![65534],
+                vec![Opcode::Constant as u8, 255, 254],
+            ),
+            (Opcode::Add, vec![], vec![Opcode::Add as u8]),
+        ];
 
         for (opcode, operands, result) in cases.into_iter() {
-            let instruction = make(opcode, operands).unwrap();
+            let instruction = make(opcode, &operands).unwrap();
 
             assert_eq!(result.len(), instruction.len());
 
-            for (expected, actual) in result.iter().zip(instruction.into_iter()) {
-                assert_eq!(*expected, actual);
+            for (expected, actual) in result.into_iter().zip(instruction.into_iter()) {
+                assert_eq!(expected, actual);
             }
         }
     }
@@ -189,14 +195,14 @@ mod test {
     #[test]
     fn test_instructions_display() {
         let insts = vec![
-            make(Opcode::Constant, &[1]).unwrap(),
+            make(Opcode::Add, &[]).unwrap(),
             make(Opcode::Constant, &[2]).unwrap(),
             make(Opcode::Constant, &[65535]).unwrap(),
         ];
 
-        let expected = "0000 Constant 1
-0003 Constant 2
-0006 Constant 65535
+        let expected = "0000 Add
+0001 Constant 2
+0004 Constant 65535
 ";
 
         assert_eq!(concat_instructions(insts).to_string(), expected);
