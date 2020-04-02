@@ -13,13 +13,18 @@ custom_error! {
 #[repr(u8)]
 pub enum Opcode {
     Constant,
+    True,
+    False,
+
     Add,
     Sub,
     Mul,
     Div,
+    Equal,
+    NotEqual,
+    GreaterThan,
+
     Pop,
-    True,
-    False,
     Maximum,
 }
 
@@ -36,6 +41,9 @@ impl Opcode {
             Self::Pop => NO_ARGS,
             Self::True => NO_ARGS,
             Self::False => NO_ARGS,
+            Self::Equal => NO_ARGS,
+            Self::NotEqual => NO_ARGS,
+            Self::GreaterThan => NO_ARGS,
             Self::Maximum => None,
         }
     }

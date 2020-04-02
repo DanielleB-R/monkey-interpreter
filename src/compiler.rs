@@ -33,6 +33,13 @@ impl Compiler {
             },
             Node::Expression(expr) => match expr {
                 Expression::Infix(infix) => {
+                    if infix.operator == Operator::LT {
+                        self.compile((*infix.right).into())?;
+                        self.compile((*infix.left).into())?;
+                        self.emit(Opcode::GreaterThan, &[]);
+                        return Ok(());
+                    }
+
                     self.compile((*infix.left).into())?;
                     self.compile((*infix.right).into())?;
 
@@ -41,6 +48,9 @@ impl Compiler {
                         Operator::Minus => self.emit(Opcode::Sub, &[]),
                         Operator::Asterisk => self.emit(Opcode::Mul, &[]),
                         Operator::Slash => self.emit(Opcode::Div, &[]),
+                        Operator::GT => self.emit(Opcode::GreaterThan, &[]),
+                        Operator::Eq => self.emit(Opcode::Equal, &[]),
+                        Operator::NotEq => self.emit(Opcode::NotEqual, &[]),
                         _ => return Err(CompileError::UnknownOperator { op: infix.operator }),
                     };
                 }
@@ -174,6 +184,66 @@ mod test {
                 vec![],
                 vec![
                     code::make(Opcode::False, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+            (
+                "1 > 2",
+                vec![1.into(), 2.into()],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    code::make(Opcode::GreaterThan, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+            (
+                "1 < 2",
+                vec![2.into(), 1.into()],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    code::make(Opcode::GreaterThan, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+            (
+                "1 == 2",
+                vec![1.into(), 2.into()],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    code::make(Opcode::Equal, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+            (
+                "1 != 2",
+                vec![1.into(), 2.into()],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    code::make(Opcode::NotEqual, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+            (
+                "true == false",
+                vec![],
+                vec![
+                    code::make(Opcode::True, &[]).unwrap(),
+                    code::make(Opcode::False, &[]).unwrap(),
+                    code::make(Opcode::Equal, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+            (
+                "true != false",
+                vec![],
+                vec![
+                    code::make(Opcode::True, &[]).unwrap(),
+                    code::make(Opcode::False, &[]).unwrap(),
+                    code::make(Opcode::NotEqual, &[]).unwrap(),
                     code::make(Opcode::Pop, &[]).unwrap(),
                 ],
             ),

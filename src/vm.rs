@@ -46,6 +46,9 @@ impl VM {
                 Opcode::Add | Opcode::Sub | Opcode::Mul | Opcode::Div => {
                     self.execute_binary_operation(op)?;
                 }
+                Opcode::Equal | Opcode::NotEqual | Opcode::GreaterThan => {
+                    self.execute_comparison(op)?;
+                }
                 Opcode::Pop => {
                     self.pop();
                 }
@@ -59,6 +62,25 @@ impl VM {
             }
             ip += 1;
         }
+        Ok(())
+    }
+
+    fn execute_comparison(&mut self, op: Opcode) -> Result<(), ()> {
+        let right = self.pop();
+        let left = self.pop();
+
+        match op {
+            Opcode::Equal => self.push((right == left).into())?,
+            Opcode::NotEqual => self.push((right != left).into())?,
+            Opcode::GreaterThan => match (left, right) {
+                (Object::Integer(l), Object::Integer(r)) => {
+                    self.push((l > r).into())?;
+                }
+                _ => return Err(()),
+            },
+            _ => return Err(()),
+        }
+
         Ok(())
     }
 
@@ -143,7 +165,27 @@ mod test {
 
     #[test]
     fn test_boolean_expressions() {
-        let cases = vec![("true", true.into()), ("false", false.into())];
+        let cases = vec![
+            ("true", true.into()),
+            ("false", false.into()),
+            ("1 < 2", true.into()),
+            ("1 > 2", false.into()),
+            ("1 < 1", false.into()),
+            ("1 > 1", false.into()),
+            ("1 == 1", true.into()),
+            ("1 != 1", false.into()),
+            ("1 == 2", false.into()),
+            ("1 != 2", true.into()),
+            ("true == true", true.into()),
+            ("false == false", true.into()),
+            ("true == false", false.into()),
+            ("true != false", true.into()),
+            ("false != true", true.into()),
+            ("(1 < 2) == true", true.into()),
+            ("(1 < 2) == false", false.into()),
+            ("(1 > 2) == true", false.into()),
+            ("(1 > 2) == false", true.into()),
+        ];
 
         run_vm_tests(cases);
     }
