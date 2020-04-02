@@ -63,7 +63,7 @@ pub fn start() {
                     println!("Execution error!");
                 }
 
-                println!("{}", machine.stack_top().unwrap());
+                println!("{}", machine.last_popped_stack_element());
             }
         }
     }

@@ -1,6 +1,14 @@
 use crate::ast::{Expression, Node, Operator, Statement};
 use crate::code::{self, BytecodeError, Instructions, Opcode};
 use crate::object::Object;
+use custom_error::custom_error;
+
+custom_error! {
+    pub CompileError
+
+    InvalidBytecode{source: BytecodeError} = "invalid bytecode: {source}",
+    UnknownOperator{op: Operator} = "unknown operator {op}",
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct Compiler {
@@ -9,7 +17,7 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn compile(&mut self, node: Node) -> Result<(), BytecodeError> {
+    pub fn compile(&mut self, node: Node) -> Result<(), CompileError> {
         match node {
             Node::Program(p) => {
                 for stmt in p.statements {
@@ -17,7 +25,10 @@ impl Compiler {
                 }
             }
             Node::Statement(stmt) => match stmt {
-                Statement::Expr(e) => self.compile(e.expression.into())?,
+                Statement::Expr(e) => {
+                    self.compile(e.expression.into())?;
+                    self.emit(Opcode::Pop, &[]);
+                }
                 _ => panic!("unimplemented"),
             },
             Node::Expression(expr) => match expr {
@@ -27,7 +38,10 @@ impl Compiler {
 
                     match infix.operator {
                         Operator::Plus => self.emit(Opcode::Add, &[]),
-                        _ => panic!("unknown operator"),
+                        Operator::Minus => self.emit(Opcode::Sub, &[]),
+                        Operator::Asterisk => self.emit(Opcode::Mul, &[]),
+                        Operator::Slash => self.emit(Opcode::Div, &[]),
+                        _ => return Err(CompileError::UnknownOperator { op: infix.operator }),
                     };
                 }
                 Expression::IntegerLiteral(int) => {
@@ -81,15 +95,58 @@ mod test {
 
     #[test]
     fn test_integer_arithmetic() {
-        let cases = vec![(
-            "1 + 2",
-            vec![Object::Integer(1), Object::Integer(2)],
-            vec![
-                code::make(Opcode::Constant, &[0]).unwrap(),
-                code::make(Opcode::Constant, &[1]).unwrap(),
-                code::make(Opcode::Add, &[]).unwrap(),
-            ],
-        )];
+        let cases = vec![
+            (
+                "1 + 2",
+                vec![Object::Integer(1), Object::Integer(2)],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    code::make(Opcode::Add, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+            (
+                "1 - 2",
+                vec![Object::Integer(1), Object::Integer(2)],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    code::make(Opcode::Sub, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+            (
+                "1 * 2",
+                vec![Object::Integer(1), Object::Integer(2)],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    code::make(Opcode::Mul, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+            (
+                "2 / 1",
+                vec![Object::Integer(2), Object::Integer(1)],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    code::make(Opcode::Div, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+            (
+                "1; 2",
+                vec![Object::Integer(1), Object::Integer(2)],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+        ];
 
         run_compiler_tests(cases);
     }

@@ -14,15 +14,25 @@ custom_error! {
 pub enum Opcode {
     Constant,
     Add,
+    Sub,
+    Mul,
+    Div,
+    Pop,
     Maximum,
 }
 
+static NO_ARGS: Option<&'static [usize]> = Some(&[]);
+
 impl Opcode {
-    pub fn operand_widths(&self) -> Option<&'static [usize]> {
+    pub fn operand_widths(self) -> Option<&'static [usize]> {
         match self {
             Self::Constant => Some(&[2]),
-            Self::Add => Some(&[]),
-            _ => None,
+            Self::Add => NO_ARGS,
+            Self::Sub => NO_ARGS,
+            Self::Mul => NO_ARGS,
+            Self::Div => NO_ARGS,
+            Self::Pop => NO_ARGS,
+            Self::Maximum => None,
         }
     }
 }

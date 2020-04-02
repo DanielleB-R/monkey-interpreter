@@ -43,22 +43,49 @@ impl VM {
                     ip += 2;
                     self.push(self.constants[const_index as usize].clone())?;
                 }
-                Opcode::Add => {
-                    let right = self.pop();
-                    let left = self.pop();
-                    match (left, right) {
-                        (Object::Integer(l), Object::Integer(r)) => {
-                            self.push(Object::Integer(l + r))?
-                        }
-                        _ => return Err(()),
-                    }
+                Opcode::Add | Opcode::Sub | Opcode::Mul | Opcode::Div => {
+                    self.execute_binary_operation(op)?;
+                }
+                Opcode::Pop => {
+                    self.pop();
                 }
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
-                _ => panic!("unimplemented"),
+                _ => {
+                    println!("unimplemented");
+                    return Err(());
+                }
             }
             ip += 1;
         }
         Ok(())
+    }
+
+    fn execute_binary_operation(&mut self, op: Opcode) -> Result<(), ()> {
+        let right = self.pop();
+        let left = self.pop();
+        match (left, right) {
+            (Object::Integer(l), Object::Integer(r)) => {
+                self.execute_binary_integer_operation(op, l, r)
+            }
+            _ => Err(()),
+        }
+    }
+
+    fn execute_binary_integer_operation(
+        &mut self,
+        op: Opcode,
+        left: i64,
+        right: i64,
+    ) -> Result<(), ()> {
+        let result = match op {
+            Opcode::Add => left + right,
+            Opcode::Sub => left - right,
+            Opcode::Mul => left * right,
+            Opcode::Div => left / right,
+            _ => return Err(()),
+        };
+
+        self.push(Object::Integer(result))
     }
 
     fn push(&mut self, obj: Object) -> Result<(), ()> {
@@ -77,6 +104,10 @@ impl VM {
         self.sp -= 1;
         obj
     }
+
+    pub(crate) fn last_popped_stack_element(&self) -> &Object {
+        &self.stack[self.sp]
+    }
 }
 
 #[cfg(test)]
@@ -94,6 +125,15 @@ mod test {
             ("1", Object::Integer(1)),
             ("2", Object::Integer(2)),
             ("1 + 2", Object::Integer(3)),
+            ("1 - 2", Object::Integer(-1)),
+            ("1 * 2", Object::Integer(2)),
+            ("4 / 2", Object::Integer(2)),
+            ("50 / 2 * 2 + 10 - 5", Object::Integer(55)),
+            ("5 + 5 + 5 + 5 - 10", Object::Integer(10)),
+            ("2 * 2 * 2 * 2 * 2", Object::Integer(32)),
+            ("5 * 2 + 10", Object::Integer(20)),
+            ("5 + 2 * 10", Object::Integer(25)),
+            ("5 * (2 + 10)", Object::Integer(60)),
         ];
 
         run_vm_tests(cases);
@@ -115,7 +155,7 @@ mod test {
             let mut vm = VM::new(comp.bytecode());
             vm.run().unwrap();
 
-            assert_eq!(vm.stack_top().unwrap(), &output);
+            assert_eq!(vm.last_popped_stack_element(), &output);
         }
     }
 }
