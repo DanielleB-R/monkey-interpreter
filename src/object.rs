@@ -20,6 +20,28 @@ custom_error! {
     NotHashable{type_name: &'static str} = "unusable as hash key: {type_name}",
 }
 
+impl EvalError {
+    pub fn binary_op_error(
+        left: &'static str,
+        operator: ast::Operator,
+        right: &'static str,
+    ) -> Self {
+        if left == right {
+            Self::UnknownInfixOperator {
+                left,
+                operator,
+                right,
+            }
+        } else {
+            Self::TypeMismatch {
+                left,
+                operator,
+                right,
+            }
+        }
+    }
+}
+
 pub type Result<T> = std::result::Result<T, EvalError>;
 
 pub type Builtin = fn(Vec<Object>) -> Result<Object>;
@@ -69,6 +91,12 @@ impl From<i64> for Object {
     }
 }
 
+impl From<bool> for Object {
+    fn from(b: bool) -> Self {
+        Self::Boolean(b)
+    }
+}
+
 impl Object {
     pub fn is_return_value(&self) -> bool {
         match self {
@@ -95,6 +123,14 @@ impl Object {
             Self::Array(_) => "ARRAY",
             Self::Hash(_) => "HASH",
             Self::Null => "NULL",
+        }
+    }
+
+    pub fn truth_value(self) -> bool {
+        match self {
+            Self::Boolean(false) => false,
+            Self::Null => false,
+            _ => true,
         }
     }
 }

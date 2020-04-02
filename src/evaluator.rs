@@ -24,7 +24,7 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
         },
         Node::Expression(e) => match e {
             ast::Expression::IntegerLiteral(l) => Ok(l.value.into()),
-            ast::Expression::Boolean(b) => Ok(Object::Boolean(b.value)),
+            ast::Expression::Boolean(b) => Ok(b.value.into()),
             ast::Expression::Prefix(prefix) => {
                 let right = eval((*prefix.right).into(), env)?;
                 eval_prefix_expression(prefix.operator, right)
@@ -114,32 +114,18 @@ fn eval_prefix_expression(operator: ast::Operator, right: Object) -> Result<Obje
 
 fn eval_infix_expression(operator: ast::Operator, left: Object, right: Object) -> Result<Object> {
     match operator {
-        ast::Operator::Eq => Ok(Object::Boolean(left == right)),
-        ast::Operator::NotEq => Ok(Object::Boolean(left != right)),
+        ast::Operator::Eq => Ok((left == right).into()),
+        ast::Operator::NotEq => Ok((left != right).into()),
         op => match (left, right) {
             (Object::Integer(x), Object::Integer(y)) => eval_integer_infix_expression(op, x, y),
-            (Object::Boolean(_), Object::Boolean(_)) => Err(EvalError::UnknownInfixOperator {
-                left: "BOOLEAN",
-                operator: op,
-                right: "BOOLEAN",
-            }),
             (Object::String(a), Object::String(b)) => eval_string_infix_expression(op, a, b),
-            (a, b) => Err(EvalError::TypeMismatch {
-                left: a.type_name(),
-                operator: op,
-                right: b.type_name(),
-            }),
+            (a, b) => Err(EvalError::binary_op_error(a.type_name(), op, b.type_name())),
         },
     }
 }
 
 fn eval_bang_operator(right: Object) -> Object {
-    Object::Boolean(match right {
-        Object::Boolean(true) => (false),
-        Object::Boolean(false) => (true),
-        Object::Null => (true),
-        _ => false,
-    })
+    (!right.truth_value()).into()
 }
 
 fn eval_prefix_minus_operator(right: Object) -> Result<Object> {
@@ -158,10 +144,10 @@ fn eval_integer_infix_expression(operator: ast::Operator, left: i64, right: i64)
         ast::Operator::Minus => Ok((left - right).into()),
         ast::Operator::Asterisk => Ok((left * right).into()),
         ast::Operator::Slash => Ok((left / right).into()),
-        ast::Operator::LT => Ok(Object::Boolean(left < right)),
-        ast::Operator::GT => Ok(Object::Boolean(left > right)),
-        ast::Operator::Eq => Ok(Object::Boolean(left == right)),
-        ast::Operator::NotEq => Ok(Object::Boolean(left != right)),
+        ast::Operator::LT => Ok((left < right).into()),
+        ast::Operator::GT => Ok((left > right).into()),
+        ast::Operator::Eq => Ok((left == right).into()),
+        ast::Operator::NotEq => Ok((left != right).into()),
         op => Err(EvalError::UnknownInfixOperator {
             left: "INTEGER",
             operator: op,
@@ -188,17 +174,13 @@ fn eval_string_infix_expression(
 fn eval_if_expression(if_expression: ast::IfExpression, env: &mut Environment) -> Result<Object> {
     let condition = eval((*if_expression.condition).into(), env)?;
 
-    if is_truthy(condition) {
+    if condition.truth_value() {
         eval(ast::Statement::Block(if_expression.consequence).into(), env)
     } else if let Some(alt) = if_expression.alternative {
         eval(ast::Statement::Block(alt).into(), env)
     } else {
         Ok(Object::Null)
     }
-}
-
-fn is_truthy(obj: Object) -> bool {
-    obj != Object::Null && obj != Object::Boolean(false)
 }
 
 fn apply_function(func: Object, args: Vec<Object>) -> Result<Object> {
@@ -294,7 +276,7 @@ mod test {
         ];
 
         for (input, output) in cases.into_iter() {
-            test_integer_object(&test_eval(input).unwrap(), output);
+            assert_eq!(test_eval(input).unwrap(), output.into());
         }
     }
 
@@ -323,7 +305,7 @@ mod test {
         ];
 
         for (input, output) in cases.into_iter() {
-            test_boolean_object(&test_eval(input).unwrap(), output);
+            assert_eq!(test_eval(input).unwrap(), output.into());
         }
     }
 
@@ -339,7 +321,7 @@ mod test {
         ];
 
         for (input, output) in cases.into_iter() {
-            test_boolean_object(&test_eval(input).unwrap(), output);
+            assert_eq!(test_eval(input).unwrap(), output.into());
         }
     }
 
@@ -380,7 +362,7 @@ mod test {
         ];
 
         for (input, output) in cases.into_iter() {
-            test_integer_object(&test_eval(input).unwrap(), output);
+            assert_eq!(test_eval(input).unwrap(), output.into());
         }
     }
 
@@ -486,7 +468,7 @@ if (10 > 1) {
         ];
 
         for (input, val) in cases.into_iter() {
-            test_integer_object(&test_eval(input).unwrap(), val);
+            assert_eq!(test_eval(input).unwrap(), val.into());
         }
     }
 
@@ -516,7 +498,7 @@ if (10 > 1) {
         ];
 
         for (input, output) in cases.into_iter() {
-            test_integer_object(&test_eval(input).unwrap(), output);
+            assert_eq!(test_eval(input).unwrap(), output.into());
         }
     }
 
@@ -531,7 +513,7 @@ let addTwo = newAdder(2);
 addTwo(2);
 ";
 
-        test_integer_object(&test_eval(input).unwrap(), 4);
+        assert_eq!(test_eval(input).unwrap(), 4.into());
     }
 
     #[test]
@@ -703,19 +685,5 @@ addTwo(2);
                 .into(),
             &mut env,
         )
-    }
-
-    fn test_integer_object(obj: &Object, expected: i64) {
-        match obj {
-            Object::Integer(n) => assert_eq!(*n, expected),
-            _ => panic!(),
-        }
-    }
-
-    fn test_boolean_object(obj: &Object, expected: bool) {
-        match obj {
-            Object::Boolean(b) => assert_eq!(*b, expected),
-            _ => panic!(),
-        }
     }
 }

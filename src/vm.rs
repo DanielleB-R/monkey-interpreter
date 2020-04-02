@@ -49,8 +49,8 @@ impl VM {
                 Opcode::Pop => {
                     self.pop();
                 }
-                Opcode::True => self.push(Object::Boolean(true))?,
-                Opcode::False => self.push(Object::Boolean(false))?,
+                Opcode::True => self.push(true.into())?,
+                Opcode::False => self.push(false.into())?,
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
                 _ => {
                     println!("unimplemented");
@@ -143,10 +143,7 @@ mod test {
 
     #[test]
     fn test_boolean_expressions() {
-        let cases = vec![
-            ("true", Object::Boolean(true)),
-            ("false", Object::Boolean(false)),
-        ];
+        let cases = vec![("true", true.into()), ("false", false.into())];
 
         run_vm_tests(cases);
     }
