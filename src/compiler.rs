@@ -48,6 +48,13 @@ impl Compiler {
                     let constant = self.add_constant(int.value.into());
                     self.emit(Opcode::Constant, &[constant]);
                 }
+                Expression::Boolean(b) => {
+                    if b.value {
+                        self.emit(Opcode::True, &[]);
+                    } else {
+                        self.emit(Opcode::False, &[]);
+                    }
+                }
                 _ => panic!("unimplemented"),
             },
         }
@@ -149,6 +156,28 @@ mod test {
         ];
 
         run_compiler_tests(cases);
+    }
+
+    #[test]
+    fn test_boolean_expressions() {
+        run_compiler_tests(vec![
+            (
+                "true",
+                vec![],
+                vec![
+                    code::make(Opcode::True, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+            (
+                "false",
+                vec![],
+                vec![
+                    code::make(Opcode::False, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+        ]);
     }
 
     fn run_compiler_tests(cases: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {

@@ -18,6 +18,8 @@ pub enum Opcode {
     Mul,
     Div,
     Pop,
+    True,
+    False,
     Maximum,
 }
 
@@ -32,6 +34,8 @@ impl Opcode {
             Self::Mul => NO_ARGS,
             Self::Div => NO_ARGS,
             Self::Pop => NO_ARGS,
+            Self::True => NO_ARGS,
+            Self::False => NO_ARGS,
             Self::Maximum => None,
         }
     }
