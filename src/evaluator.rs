@@ -23,7 +23,7 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
             }
         },
         Node::Expression(e) => match e {
-            ast::Expression::IntegerLiteral(l) => Ok(Object::Integer(l.value)),
+            ast::Expression::IntegerLiteral(l) => Ok(l.value.into()),
             ast::Expression::Boolean(b) => Ok(Object::Boolean(b.value)),
             ast::Expression::Prefix(prefix) => {
                 let right = eval((*prefix.right).into(), env)?;
@@ -144,7 +144,7 @@ fn eval_bang_operator(right: Object) -> Object {
 
 fn eval_prefix_minus_operator(right: Object) -> Result<Object> {
     match right {
-        Object::Integer(n) => Ok(Object::Integer(-n)),
+        Object::Integer(n) => Ok((-n).into()),
         a => Err(EvalError::UnknownPrefixOperator {
             operator: ast::Operator::Minus,
             operand: a.type_name(),
@@ -154,10 +154,10 @@ fn eval_prefix_minus_operator(right: Object) -> Result<Object> {
 
 fn eval_integer_infix_expression(operator: ast::Operator, left: i64, right: i64) -> Result<Object> {
     match operator {
-        ast::Operator::Plus => Ok(Object::Integer(left + right)),
-        ast::Operator::Minus => Ok(Object::Integer(left - right)),
-        ast::Operator::Asterisk => Ok(Object::Integer(left * right)),
-        ast::Operator::Slash => Ok(Object::Integer(left / right)),
+        ast::Operator::Plus => Ok((left + right).into()),
+        ast::Operator::Minus => Ok((left - right).into()),
+        ast::Operator::Asterisk => Ok((left * right).into()),
+        ast::Operator::Slash => Ok((left / right).into()),
         ast::Operator::LT => Ok(Object::Boolean(left < right)),
         ast::Operator::GT => Ok(Object::Boolean(left > right)),
         ast::Operator::Eq => Ok(Object::Boolean(left == right)),
@@ -346,13 +346,13 @@ mod test {
     #[test]
     fn test_if_else_expressions() {
         let cases = vec![
-            ("if (true) { 10 }", Object::Integer(10)),
+            ("if (true) { 10 }", 10.into()),
             ("if (false) { 10 }", Object::Null),
-            ("if (1) { 10 }", Object::Integer(10)),
-            ("if (1 < 2) { 10 }", Object::Integer(10)),
+            ("if (1) { 10 }", 10.into()),
+            ("if (1 < 2) { 10 }", 10.into()),
             ("if (1 > 2) { 10 }", Object::Null),
-            ("if (1 < 2) { 10 } else { 20 }", Object::Integer(10)),
-            ("if (1 > 2) { 10 } else { 20 }", Object::Integer(20)),
+            ("if (1 < 2) { 10 } else { 20 }", 10.into()),
+            ("if (1 > 2) { 10 } else { 20 }", 20.into()),
         ];
 
         for (input, output) in cases.into_iter() {
@@ -555,7 +555,7 @@ addTwo(2);
     #[test]
     fn test_builtin_functions() {
         let cases = vec![
-            ("len(\"\")", Ok(Object::Integer(0))),
+            ("len(\"\")", Ok(0.into())),
             ("len(\"four\")", Ok(Object::Integer(4))),
             ("len(\"hello world\")", Ok(Object::Integer(11))),
             (

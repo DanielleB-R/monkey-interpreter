@@ -63,6 +63,12 @@ impl Default for Object {
     }
 }
 
+impl From<i64> for Object {
+    fn from(n: i64) -> Self {
+        Self::Integer(n)
+    }
+}
+
 impl Object {
     pub fn is_return_value(&self) -> bool {
         match self {

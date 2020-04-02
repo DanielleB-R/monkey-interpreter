@@ -45,7 +45,7 @@ impl Compiler {
                     };
                 }
                 Expression::IntegerLiteral(int) => {
-                    let constant = self.add_constant(Object::Integer(int.value));
+                    let constant = self.add_constant(int.value.into());
                     self.emit(Opcode::Constant, &[constant]);
                 }
                 _ => panic!("unimplemented"),
@@ -98,7 +98,7 @@ mod test {
         let cases = vec![
             (
                 "1 + 2",
-                vec![Object::Integer(1), Object::Integer(2)],
+                vec![1.into(), 2.into()],
                 vec![
                     code::make(Opcode::Constant, &[0]).unwrap(),
                     code::make(Opcode::Constant, &[1]).unwrap(),
@@ -108,7 +108,7 @@ mod test {
             ),
             (
                 "1 - 2",
-                vec![Object::Integer(1), Object::Integer(2)],
+                vec![1.into(), 2.into()],
                 vec![
                     code::make(Opcode::Constant, &[0]).unwrap(),
                     code::make(Opcode::Constant, &[1]).unwrap(),
@@ -118,7 +118,7 @@ mod test {
             ),
             (
                 "1 * 2",
-                vec![Object::Integer(1), Object::Integer(2)],
+                vec![1.into(), 2.into()],
                 vec![
                     code::make(Opcode::Constant, &[0]).unwrap(),
                     code::make(Opcode::Constant, &[1]).unwrap(),
@@ -128,7 +128,7 @@ mod test {
             ),
             (
                 "2 / 1",
-                vec![Object::Integer(2), Object::Integer(1)],
+                vec![2.into(), 1.into()],
                 vec![
                     code::make(Opcode::Constant, &[0]).unwrap(),
                     code::make(Opcode::Constant, &[1]).unwrap(),
@@ -138,7 +138,7 @@ mod test {
             ),
             (
                 "1; 2",
-                vec![Object::Integer(1), Object::Integer(2)],
+                vec![1.into(), 2.into()],
                 vec![
                     code::make(Opcode::Constant, &[0]).unwrap(),
                     code::make(Opcode::Pop, &[]).unwrap(),

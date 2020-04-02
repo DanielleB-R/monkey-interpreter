@@ -11,8 +11,8 @@ fn len(args: Vec<Object>) -> Result<Object> {
     }
 
     match args.into_iter().next().unwrap() {
-        Object::Array(a) => Ok(Object::Integer(a.len() as i64)),
-        Object::String(s) => Ok(Object::Integer(s.len() as i64)),
+        Object::Array(a) => Ok((a.len() as i64).into()),
+        Object::String(s) => Ok((s.len() as i64).into()),
         obj => Err(EvalError::UnsupportedArgType {
             fn_name: "len",
             type_name: obj.type_name(),

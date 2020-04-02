@@ -85,7 +85,7 @@ impl VM {
             _ => return Err(()),
         };
 
-        self.push(Object::Integer(result))
+        self.push(result.into())
     }
 
     fn push(&mut self, obj: Object) -> Result<(), ()> {
