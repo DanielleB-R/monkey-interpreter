@@ -51,7 +51,16 @@ impl Compiler {
                         Operator::GT => self.emit(Opcode::GreaterThan, &[]),
                         Operator::Eq => self.emit(Opcode::Equal, &[]),
                         Operator::NotEq => self.emit(Opcode::NotEqual, &[]),
-                        _ => return Err(CompileError::UnknownOperator { op: infix.operator }),
+                        op => return Err(CompileError::UnknownOperator { op }),
+                    };
+                }
+                Expression::Prefix(prefix) => {
+                    self.compile((*prefix.right).into())?;
+
+                    match prefix.operator {
+                        Operator::Bang => self.emit(Opcode::Bang, &[]),
+                        Operator::Minus => self.emit(Opcode::Minus, &[]),
+                        op => return Err(CompileError::UnknownOperator { op }),
                     };
                 }
                 Expression::IntegerLiteral(int) => {
@@ -163,6 +172,15 @@ mod test {
                     code::make(Opcode::Pop, &[]).unwrap(),
                 ],
             ),
+            (
+                "-1",
+                vec![1.into()],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::Minus, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
         ];
 
         run_compiler_tests(cases);
@@ -244,6 +262,15 @@ mod test {
                     code::make(Opcode::True, &[]).unwrap(),
                     code::make(Opcode::False, &[]).unwrap(),
                     code::make(Opcode::NotEqual, &[]).unwrap(),
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+            (
+                "!true",
+                vec![],
+                vec![
+                    code::make(Opcode::True, &[]).unwrap(),
+                    code::make(Opcode::Bang, &[]).unwrap(),
                     code::make(Opcode::Pop, &[]).unwrap(),
                 ],
             ),

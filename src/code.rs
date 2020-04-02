@@ -24,6 +24,9 @@ pub enum Opcode {
     NotEqual,
     GreaterThan,
 
+    Minus,
+    Bang,
+
     Pop,
     Maximum,
 }
@@ -44,6 +47,8 @@ impl Opcode {
             Self::Equal => NO_ARGS,
             Self::NotEqual => NO_ARGS,
             Self::GreaterThan => NO_ARGS,
+            Self::Minus => NO_ARGS,
+            Self::Bang => NO_ARGS,
             Self::Maximum => None,
         }
     }

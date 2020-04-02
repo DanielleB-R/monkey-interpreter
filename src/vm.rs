@@ -49,6 +49,12 @@ impl VM {
                 Opcode::Equal | Opcode::NotEqual | Opcode::GreaterThan => {
                     self.execute_comparison(op)?;
                 }
+                Opcode::Bang => {
+                    self.execute_bang_operator()?;
+                }
+                Opcode::Minus => {
+                    self.execute_minus_operator()?;
+                }
                 Opcode::Pop => {
                     self.pop();
                 }
@@ -70,18 +76,27 @@ impl VM {
         let left = self.pop();
 
         match op {
-            Opcode::Equal => self.push((right == left).into())?,
-            Opcode::NotEqual => self.push((right != left).into())?,
+            Opcode::Equal => self.push((right == left).into()),
+            Opcode::NotEqual => self.push((right != left).into()),
             Opcode::GreaterThan => match (left, right) {
-                (Object::Integer(l), Object::Integer(r)) => {
-                    self.push((l > r).into())?;
-                }
-                _ => return Err(()),
+                (Object::Integer(l), Object::Integer(r)) => self.push((l > r).into()),
+                _ => Err(()),
             },
-            _ => return Err(()),
+            _ => Err(()),
         }
+    }
 
-        Ok(())
+    fn execute_bang_operator(&mut self) -> Result<(), ()> {
+        let operand = self.pop();
+        self.push((!operand.truth_value()).into())
+    }
+
+    fn execute_minus_operator(&mut self) -> Result<(), ()> {
+        let operand = self.pop();
+        match operand {
+            Object::Integer(n) => self.push((-n).into()),
+            _ => Err(()),
+        }
     }
 
     fn execute_binary_operation(&mut self, op: Opcode) -> Result<(), ()> {
@@ -155,9 +170,13 @@ mod test {
             ("50 / 2 * 2 + 10 - 5", Object::Integer(55)),
             ("5 + 5 + 5 + 5 - 10", Object::Integer(10)),
             ("2 * 2 * 2 * 2 * 2", Object::Integer(32)),
-            ("5 * 2 + 10", Object::Integer(20)),
-            ("5 + 2 * 10", Object::Integer(25)),
-            ("5 * (2 + 10)", Object::Integer(60)),
+            ("5 * 2 + 10", 20.into()),
+            ("5 + 2 * 10", 25.into()),
+            ("5 * (2 + 10)", 60.into()),
+            ("-5", (-5).into()),
+            ("-10", (-10).into()),
+            ("-50 + 100 + -50", 0.into()),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50.into()),
         ];
 
         run_vm_tests(cases);
@@ -185,6 +204,12 @@ mod test {
             ("(1 < 2) == false", false.into()),
             ("(1 > 2) == true", false.into()),
             ("(1 > 2) == false", true.into()),
+            ("!true", false.into()),
+            ("!false", true.into()),
+            ("!5", false.into()),
+            ("!!true", true.into()),
+            ("!!false", false.into()),
+            ("!!5", true.into()),
         ];
 
         run_vm_tests(cases);
