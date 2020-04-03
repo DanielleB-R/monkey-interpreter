@@ -178,6 +178,10 @@ pub fn make(op: Opcode, operands: &[isize]) -> Option<Instructions> {
 
     let mut instruction = vec![op as u8];
 
+    if widths.len() != operands.len() {
+        return None;
+    }
+
     for (width, operand) in widths.iter().zip(operands.iter()) {
         match *width {
             2 => instruction.extend_from_slice(&(*operand as u16).to_be_bytes()),

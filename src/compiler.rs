@@ -92,7 +92,7 @@ impl Compiler {
                 Expression::If(expr) => {
                     self.compile((*expr.condition).into())?;
 
-                    let jump_pos = self
+                    let jump_falsy_pos = self
                         .emit(Opcode::JumpFalsy, &[9999])
                         .expect("Jump failed to emit");
 
@@ -102,8 +102,24 @@ impl Compiler {
                         self.remove_last_pop();
                     }
 
-                    let after_consequence_pos = self.instructions.len();
-                    self.change_operand(jump_pos, after_consequence_pos as isize);
+                    if let Some(alt) = expr.alternative {
+                        let jump_pos = self
+                            .emit(Opcode::Jump, &[9999])
+                            .expect("Jump failed to emit");
+                        let after_consequence_pos = self.instructions.len();
+                        self.change_operand(jump_falsy_pos, after_consequence_pos as isize);
+                        self.compile(Statement::Block(alt).into())?;
+
+                        if self.last_instruction_is_pop() {
+                            self.remove_last_pop();
+                        }
+
+                        let after_alternative_pos = self.instructions.len();
+                        self.change_operand(jump_pos, after_alternative_pos as isize);
+                    } else {
+                        let after_consequence_pos = self.instructions.len();
+                        self.change_operand(jump_falsy_pos, after_consequence_pos as isize);
+                    }
                 }
                 _ => println!("unimplemented"),
             },
@@ -340,24 +356,48 @@ mod test {
 
     #[test]
     fn test_conditionals() {
-        let cases = vec![(
-            "if (true) { 10 }; 3333;",
-            vec![10.into(), 3333.into()],
-            vec![
-                // 0000
-                make_single(Opcode::True),
-                // 0001
-                code::make(Opcode::JumpFalsy, &[7]).unwrap(),
-                // 0004
-                code::make(Opcode::Constant, &[0]).unwrap(),
-                // 0007
-                code::make(Opcode::Pop, &[]).unwrap(),
-                // 0008
-                code::make(Opcode::Constant, &[1]).unwrap(),
-                // 0011
-                code::make(Opcode::Pop, &[]).unwrap(),
-            ],
-        )];
+        let cases = vec![
+            (
+                "if (true) { 10 }; 3333;",
+                vec![10.into(), 3333.into()],
+                vec![
+                    // 0000
+                    make_single(Opcode::True),
+                    // 0001
+                    code::make(Opcode::JumpFalsy, &[7]).unwrap(),
+                    // 0004
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    // 0007
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                    // 0008
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    // 0011
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+            (
+                "if (true) { 10 } else { 20 }; 3333;",
+                vec![10.into(), 20.into(), 3333.into()],
+                vec![
+                    // 0000
+                    make_single(Opcode::True),
+                    // 0001
+                    code::make(Opcode::JumpFalsy, &[10]).unwrap(),
+                    // 0004
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    // 0007
+                    code::make(Opcode::Jump, &[13]).unwrap(),
+                    // 0010
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    // 0013
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                    // 0008
+                    code::make(Opcode::Constant, &[2]).unwrap(),
+                    // 0011
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+        ];
 
         run_compiler_tests(cases);
     }
