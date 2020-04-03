@@ -63,7 +63,6 @@ impl VM {
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
                 _ => {
                     println!("unimplemented");
-                    return Err(());
                 }
             }
             ip += 1;

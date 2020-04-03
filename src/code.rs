@@ -27,8 +27,17 @@ pub enum Opcode {
     Minus,
     Bang,
 
+    JumpFalsy,
+    Jump,
+
     Pop,
     Maximum,
+}
+
+impl Default for Opcode {
+    fn default() -> Self {
+        Self::Maximum
+    }
 }
 
 static NO_ARGS: Option<&'static [usize]> = Some(&[]);
@@ -49,6 +58,8 @@ impl Opcode {
             Self::GreaterThan => NO_ARGS,
             Self::Minus => NO_ARGS,
             Self::Bang => NO_ARGS,
+            Self::JumpFalsy => Some(&[2]),
+            Self::Jump => Some(&[2]),
             Self::Maximum => None,
         }
     }
@@ -149,6 +160,16 @@ impl Instructions {
 
     pub fn append(&mut self, additional: Self) {
         self.0.extend_from_slice(&additional.0);
+    }
+
+    pub fn truncate(&mut self, position: usize) {
+        self.0.truncate(position);
+    }
+
+    pub fn replace_instruction(&mut self, pos: usize, new_instruction: Self) {
+        for (i, byte) in new_instruction.into_iter().enumerate() {
+            self.0[i + pos] = byte;
+        }
     }
 }
 

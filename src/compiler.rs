@@ -2,6 +2,7 @@ use crate::ast::{Expression, Node, Operator, Statement};
 use crate::code::{self, BytecodeError, Instructions, Opcode};
 use crate::object::Object;
 use custom_error::custom_error;
+use std::convert::TryInto;
 
 custom_error! {
     pub CompileError
@@ -10,10 +11,19 @@ custom_error! {
     UnknownOperator{op: Operator} = "unknown operator {op}",
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct EmittedInstruction {
+    pub opcode: Opcode,
+    pub position: usize,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Compiler {
     pub instructions: Instructions,
     pub constants: Vec<Object>,
+
+    last_instruction: EmittedInstruction,
+    previous_instruction: EmittedInstruction,
 }
 
 impl Compiler {
@@ -29,7 +39,12 @@ impl Compiler {
                     self.compile(e.expression.into())?;
                     self.emit(Opcode::Pop, &[]);
                 }
-                _ => panic!("unimplemented"),
+                Statement::Block(block) => {
+                    for stmt in block.statements {
+                        self.compile(stmt.into())?;
+                    }
+                }
+                _ => println!("unimplemented"),
             },
             Node::Expression(expr) => match expr {
                 Expression::Infix(infix) => {
@@ -74,7 +89,23 @@ impl Compiler {
                         self.emit(Opcode::False, &[]);
                     }
                 }
-                _ => panic!("unimplemented"),
+                Expression::If(expr) => {
+                    self.compile((*expr.condition).into())?;
+
+                    let jump_pos = self
+                        .emit(Opcode::JumpFalsy, &[9999])
+                        .expect("Jump failed to emit");
+
+                    self.compile(Statement::Block(expr.consequence).into())?;
+
+                    if self.last_instruction_is_pop() {
+                        self.remove_last_pop();
+                    }
+
+                    let after_consequence_pos = self.instructions.len();
+                    self.change_operand(jump_pos, after_consequence_pos as isize);
+                }
+                _ => println!("unimplemented"),
             },
         }
 
@@ -88,13 +119,43 @@ impl Compiler {
 
     pub fn emit(&mut self, op: Opcode, operands: &[isize]) -> Option<usize> {
         let ins = code::make(op, operands)?;
-        Some(self.add_instruction(ins))
+        let pos = self.add_instruction(ins);
+
+        self.set_last_instruction(op, pos);
+        Some(pos)
+    }
+
+    fn set_last_instruction(&mut self, opcode: Opcode, position: usize) {
+        self.previous_instruction = self.last_instruction;
+        self.last_instruction = EmittedInstruction { opcode, position };
+    }
+
+    fn last_instruction_is_pop(&self) -> bool {
+        self.last_instruction.opcode == Opcode::Pop
+    }
+
+    fn remove_last_pop(&mut self) {
+        self.instructions.truncate(self.last_instruction.position);
+        self.last_instruction = self.previous_instruction;
     }
 
     pub fn add_instruction(&mut self, ins: Instructions) -> usize {
         let pos = self.instructions.len();
         self.instructions.append(ins);
         pos
+    }
+
+    fn change_operand(&mut self, pos: usize, operand: isize) {
+        self.instructions.replace_instruction(
+            pos,
+            code::make(
+                self.instructions[pos]
+                    .try_into()
+                    .expect("Replacing invalid opcode"),
+                &[operand],
+            )
+            .expect("Can only replace valid instructions"),
+        );
     }
 
     pub fn bytecode(self) -> Bytecode {
@@ -277,6 +338,30 @@ mod test {
         ]);
     }
 
+    #[test]
+    fn test_conditionals() {
+        let cases = vec![(
+            "if (true) { 10 }; 3333;",
+            vec![10.into(), 3333.into()],
+            vec![
+                // 0000
+                make_single(Opcode::True),
+                // 0001
+                code::make(Opcode::JumpFalsy, &[7]).unwrap(),
+                // 0004
+                code::make(Opcode::Constant, &[0]).unwrap(),
+                // 0007
+                code::make(Opcode::Pop, &[]).unwrap(),
+                // 0008
+                code::make(Opcode::Constant, &[1]).unwrap(),
+                // 0011
+                code::make(Opcode::Pop, &[]).unwrap(),
+            ],
+        )];
+
+        run_compiler_tests(cases);
+    }
+
     fn run_compiler_tests(cases: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
         for (input, constants, instructions) in cases.into_iter() {
             let program = parse(input);
@@ -288,6 +373,10 @@ mod test {
             test_instructions(instructions, bytecode.instructions);
             assert_eq!(constants, bytecode.constants);
         }
+    }
+
+    fn make_single(opcode: Opcode) -> Instructions {
+        code::make(opcode, &[]).unwrap()
     }
 
     fn parse(input: &str) -> ast::Program {
