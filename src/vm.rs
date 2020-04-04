@@ -60,6 +60,19 @@ impl VM {
                 }
                 Opcode::True => self.push(true.into())?,
                 Opcode::False => self.push(false.into())?,
+                Opcode::JumpFalsy => {
+                    let pos = code::read_u16(&self.instructions[ip + 1..]);
+                    ip += 2;
+                    let condition = self.pop();
+
+                    if !condition.truth_value() {
+                        ip = (pos - 1) as usize;
+                    }
+                }
+                Opcode::Jump => {
+                    let pos = code::read_u16(&self.instructions[ip + 1..]);
+                    ip = (pos - 1) as usize;
+                }
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
                 _ => {
                     println!("unimplemented");
@@ -209,6 +222,21 @@ mod test {
             ("!!true", true.into()),
             ("!!false", false.into()),
             ("!!5", true.into()),
+        ];
+
+        run_vm_tests(cases);
+    }
+
+    #[test]
+    fn test_conditionals() {
+        let cases = vec![
+            ("if (true) { 10 }", 10.into()),
+            ("if (true) { 10 } else { 20 }", 10.into()),
+            ("if (false) { 10 } else { 20 }", 20.into()),
+            ("if (1) { 10 }", 10.into()),
+            ("if (1 < 2) { 10 }", 10.into()),
+            ("if (1 < 2) { 10 } else { 20 }", 10.into()),
+            ("if (1 > 2) { 10 } else { 20 }", 20.into()),
         ];
 
         run_vm_tests(cases);
