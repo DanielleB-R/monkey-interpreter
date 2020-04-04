@@ -15,6 +15,7 @@ pub enum Opcode {
     Constant,
     True,
     False,
+    Null,
 
     Add,
     Sub,
@@ -53,6 +54,7 @@ impl Opcode {
             Self::Pop => NO_ARGS,
             Self::True => NO_ARGS,
             Self::False => NO_ARGS,
+            Self::Null => NO_ARGS,
             Self::Equal => NO_ARGS,
             Self::NotEqual => NO_ARGS,
             Self::GreaterThan => NO_ARGS,

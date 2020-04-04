@@ -60,6 +60,7 @@ impl VM {
                 }
                 Opcode::True => self.push(true.into())?,
                 Opcode::False => self.push(false.into())?,
+                Opcode::Null => self.push(Object::Null)?,
                 Opcode::JumpFalsy => {
                     let pos = code::read_u16(&self.instructions[ip + 1..]);
                     ip += 2;
@@ -222,6 +223,7 @@ mod test {
             ("!!true", true.into()),
             ("!!false", false.into()),
             ("!!5", true.into()),
+            ("!(if (false) { 5; })", true.into()),
         ];
 
         run_vm_tests(cases);
@@ -237,6 +239,9 @@ mod test {
             ("if (1 < 2) { 10 }", 10.into()),
             ("if (1 < 2) { 10 } else { 20 }", 10.into()),
             ("if (1 > 2) { 10 } else { 20 }", 20.into()),
+            ("if (1 > 2) { 10 }", Object::Null),
+            ("if (false) { 10 }", Object::Null),
+            ("if ((if (false) { 10 })) { 10 } else { 20 }", 20.into()),
         ];
 
         run_vm_tests(cases);

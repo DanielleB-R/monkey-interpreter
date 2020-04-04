@@ -102,24 +102,26 @@ impl Compiler {
                         self.remove_last_pop();
                     }
 
-                    if let Some(alt) = expr.alternative {
-                        let jump_pos = self
-                            .emit(Opcode::Jump, &[9999])
-                            .expect("Jump failed to emit");
-                        let after_consequence_pos = self.instructions.len();
-                        self.change_operand(jump_falsy_pos, after_consequence_pos as isize);
-                        self.compile(Statement::Block(alt).into())?;
+                    let jump_pos = self
+                        .emit(Opcode::Jump, &[9999])
+                        .expect("Jump failed to emit");
+                    let after_consequence_pos = self.instructions.len();
+                    self.change_operand(jump_falsy_pos, after_consequence_pos as isize);
+                    match expr.alternative {
+                        Some(alt) => {
+                            self.compile(Statement::Block(alt).into())?;
 
-                        if self.last_instruction_is_pop() {
-                            self.remove_last_pop();
+                            if self.last_instruction_is_pop() {
+                                self.remove_last_pop();
+                            }
                         }
+                        None => {
+                            self.emit(Opcode::Null, &[]).expect("Null failed to emit");
+                        }
+                    };
 
-                        let after_alternative_pos = self.instructions.len();
-                        self.change_operand(jump_pos, after_alternative_pos as isize);
-                    } else {
-                        let after_consequence_pos = self.instructions.len();
-                        self.change_operand(jump_falsy_pos, after_consequence_pos as isize);
-                    }
+                    let after_alternative_pos = self.instructions.len();
+                    self.change_operand(jump_pos, after_alternative_pos as isize);
                 }
                 _ => println!("unimplemented"),
             },
@@ -364,14 +366,18 @@ mod test {
                     // 0000
                     make_single(Opcode::True),
                     // 0001
-                    code::make(Opcode::JumpFalsy, &[7]).unwrap(),
+                    code::make(Opcode::JumpFalsy, &[10]).unwrap(),
                     // 0004
                     code::make(Opcode::Constant, &[0]).unwrap(),
                     // 0007
-                    code::make(Opcode::Pop, &[]).unwrap(),
-                    // 0008
-                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    code::make(Opcode::Jump, &[11]).unwrap(),
+                    // 0010
+                    make_single(Opcode::Null),
                     // 0011
+                    code::make(Opcode::Pop, &[]).unwrap(),
+                    // 0012
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    // 0015
                     code::make(Opcode::Pop, &[]).unwrap(),
                 ],
             ),
