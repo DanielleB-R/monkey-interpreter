@@ -56,8 +56,7 @@ impl VM {
 
             match op {
                 Opcode::Constant => {
-                    let const_index = code::read_u16(&self.instructions[ip + 1..]);
-                    ip += 2;
+                    let const_index = self.get_u16_arg(&mut ip);
                     self.push(self.constants[const_index as usize].clone())?;
                 }
                 Opcode::Add | Opcode::Sub | Opcode::Mul | Opcode::Div => {
@@ -79,29 +78,33 @@ impl VM {
                 Opcode::False => self.push(false.into())?,
                 Opcode::Null => self.push(Object::Null)?,
                 Opcode::JumpFalsy => {
-                    let pos = code::read_u16(&self.instructions[ip + 1..]);
-                    ip += 2;
+                    let target = self.get_u16_arg(&mut ip);
                     let condition = self.pop();
 
                     if !condition.truth_value() {
-                        ip = (pos - 1) as usize;
+                        ip = (target - 1) as usize;
                     }
                 }
                 Opcode::Jump => {
-                    let pos = code::read_u16(&self.instructions[ip + 1..]);
-                    ip = (pos - 1) as usize;
+                    let target = self.get_u16_arg(&mut ip);
+                    ip = (target - 1) as usize;
                 }
                 Opcode::SetGlobal => {
-                    let pos = code::read_u16(&self.instructions[ip + 1..]);
-                    ip += 2;
+                    let index = self.get_u16_arg(&mut ip);
 
-                    self.globals[pos as usize] = self.pop();
+                    self.globals[index as usize] = self.pop();
                 }
                 Opcode::GetGlobal => {
-                    let pos = code::read_u16(&self.instructions[ip + 1..]);
-                    ip += 2;
+                    let pos = self.get_u16_arg(&mut ip);
 
                     self.push(self.globals[pos as usize].clone())?
+                }
+                Opcode::Array => {
+                    let len = self.get_u16_arg(&mut ip) as usize;
+
+                    let arr = self.build_array(self.sp - len, self.sp);
+                    self.sp -= len;
+                    self.push(arr)?;
                 }
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
                 _ => {
@@ -111,6 +114,12 @@ impl VM {
             ip += 1;
         }
         Ok(())
+    }
+
+    fn get_u16_arg(&mut self, ip: &mut usize) -> u16 {
+        let arg = code::read_u16(&self.instructions[*ip + 1..]);
+        *ip += 2;
+        arg
     }
 
     fn execute_comparison(&mut self, op: Opcode) -> Result<(), ()> {
@@ -148,6 +157,9 @@ impl VM {
             (Object::Integer(l), Object::Integer(r)) => {
                 self.execute_binary_integer_operation(op, l, r)
             }
+            (Object::String(l), Object::String(r)) => {
+                self.execute_binary_string_operation(op, l, r)
+            }
             _ => Err(()),
         }
     }
@@ -167,6 +179,27 @@ impl VM {
         };
 
         self.push(result.into())
+    }
+
+    fn execute_binary_string_operation(
+        &mut self,
+        op: Opcode,
+        left: String,
+        right: String,
+    ) -> Result<(), ()> {
+        if op == Opcode::Add {
+            self.push((left + &right).into())
+        } else {
+            Err(())
+        }
+    }
+
+    fn build_array(&self, start_index: usize, end_index: usize) -> Object {
+        self.stack[start_index..end_index]
+            .iter()
+            .cloned()
+            .collect::<Vec<Object>>()
+            .into()
     }
 
     fn push(&mut self, obj: Object) -> Result<(), ()> {
@@ -286,6 +319,31 @@ mod test {
             ("let one = 1; one", 1.into()),
             ("let one = 1; let two = 2; one + two", 3.into()),
             ("let one = 1; let two = one + one; one + two", 3.into()),
+        ];
+
+        run_vm_tests(cases);
+    }
+
+    #[test]
+    fn test_string_expressions() {
+        let cases = vec![
+            ("\"monkey\"", "monkey".into()),
+            ("\"mon\" + \"key\"", "monkey".into()),
+            ("\"mon\" + \"key\" + \"banana\"", "monkeybanana".into()),
+        ];
+
+        run_vm_tests(cases);
+    }
+
+    #[test]
+    fn test_array_expressions() {
+        let cases = vec![
+            ("[]", vec![].into()),
+            ("[1, 2, 3]", vec![1.into(), 2.into(), 3.into()].into()),
+            (
+                "[1 + 2, 3 * 4, 5 + 6]",
+                vec![3.into(), 12.into(), 11.into()].into(),
+            ),
         ];
 
         run_vm_tests(cases);

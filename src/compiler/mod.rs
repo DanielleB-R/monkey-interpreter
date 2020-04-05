@@ -128,12 +128,23 @@ impl Compiler {
                     let constant = self.add_constant(int.value.into());
                     self.emit(Opcode::Constant, &[constant]);
                 }
+                Expression::String(s) => {
+                    let constant = self.add_constant(s.value.into());
+                    self.emit(Opcode::Constant, &[constant]);
+                }
                 Expression::Boolean(b) => {
                     if b.value {
                         self.emit(Opcode::True, &[]);
                     } else {
                         self.emit(Opcode::False, &[]);
                     }
+                }
+                Expression::Array(array) => {
+                    let len = array.elements.len() as isize;
+                    for expr in array.elements {
+                        self.compile(expr.into())?;
+                    }
+                    self.emit(Opcode::Array, &[len]);
                 }
                 Expression::If(expr) => {
                     self.compile((*expr.condition).into())?;
@@ -490,6 +501,76 @@ two;",
                     code::make(Opcode::GetGlobal, &[0]).unwrap(),
                     code::make(Opcode::SetGlobal, &[1]).unwrap(),
                     code::make(Opcode::GetGlobal, &[1]).unwrap(),
+                    make_single(Opcode::Pop),
+                ],
+            ),
+        ];
+
+        run_compiler_tests(cases);
+    }
+
+    #[test]
+    fn test_string_expressions() {
+        let cases = vec![
+            (
+                "\"monkey\"",
+                vec!["monkey".into()],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    make_single(Opcode::Pop),
+                ],
+            ),
+            (
+                "\"mon\" + \"key\"",
+                vec!["mon".into(), "key".into()],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    make_single(Opcode::Add),
+                    make_single(Opcode::Pop),
+                ],
+            ),
+        ];
+
+        run_compiler_tests(cases);
+    }
+
+    #[test]
+    fn test_array_literals() {
+        let cases = vec![
+            (
+                "[]",
+                vec![],
+                vec![
+                    code::make(Opcode::Array, &[0]).unwrap(),
+                    make_single(Opcode::Pop),
+                ],
+            ),
+            (
+                "[1, 2, 3]",
+                vec![1.into(), 2.into(), 3.into()],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    code::make(Opcode::Constant, &[2]).unwrap(),
+                    code::make(Opcode::Array, &[3]).unwrap(),
+                    make_single(Opcode::Pop),
+                ],
+            ),
+            (
+                "[1 + 2, 3 - 4, 5 * 6]",
+                vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into(), 6.into()],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    make_single(Opcode::Add),
+                    code::make(Opcode::Constant, &[2]).unwrap(),
+                    code::make(Opcode::Constant, &[3]).unwrap(),
+                    make_single(Opcode::Sub),
+                    code::make(Opcode::Constant, &[4]).unwrap(),
+                    code::make(Opcode::Constant, &[5]).unwrap(),
+                    make_single(Opcode::Mul),
+                    code::make(Opcode::Array, &[3]).unwrap(),
                     make_single(Opcode::Pop),
                 ],
             ),

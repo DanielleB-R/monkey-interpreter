@@ -16,6 +16,7 @@ pub enum Opcode {
     True,
     False,
     Null,
+    Array,
 
     Add,
     Sub,
@@ -50,6 +51,7 @@ impl Opcode {
     pub fn operand_widths(self) -> Option<&'static [usize]> {
         match self {
             Self::Constant => Some(&[2]),
+            Self::Array => Some(&[2]),
             Self::Add => NO_ARGS,
             Self::Sub => NO_ARGS,
             Self::Mul => NO_ARGS,

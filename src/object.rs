@@ -97,6 +97,24 @@ impl From<bool> for Object {
     }
 }
 
+impl From<String> for Object {
+    fn from(s: String) -> Self {
+        Self::String(s)
+    }
+}
+
+impl From<&str> for Object {
+    fn from(s: &str) -> Self {
+        s.to_owned().into()
+    }
+}
+
+impl From<Vec<Object>> for Object {
+    fn from(a: Vec<Object>) -> Self {
+        Self::Array(a)
+    }
+}
+
 impl Object {
     pub fn is_return_value(&self) -> bool {
         match self {
