@@ -1,3 +1,5 @@
+mod symbol;
+
 use crate::ast::{Expression, Node, Operator, Statement};
 use crate::code::{self, BytecodeError, Instructions, Opcode};
 use crate::object::Object;
@@ -9,6 +11,7 @@ custom_error! {
 
     InvalidBytecode{source: BytecodeError} = "invalid bytecode: {source}",
     UnknownOperator{op: Operator} = "unknown operator {op}",
+    UndefinedIdentifier{name: String} = "undefined variable {name}",
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -24,9 +27,36 @@ pub struct Compiler {
 
     last_instruction: EmittedInstruction,
     previous_instruction: EmittedInstruction,
+    symbol_table: symbol::SymbolTable,
+}
+
+#[derive(Default, Clone)]
+pub struct CompilerState {
+    constants: Vec<Object>,
+    symbol_table: symbol::SymbolTable,
+}
+
+impl From<CompilerState> for Compiler {
+    fn from(state: CompilerState) -> Self {
+        Self {
+            instructions: Instructions::default(),
+            constants: state.constants,
+
+            last_instruction: EmittedInstruction::default(),
+            previous_instruction: EmittedInstruction::default(),
+            symbol_table: state.symbol_table,
+        }
+    }
 }
 
 impl Compiler {
+    pub fn save_state(&self) -> CompilerState {
+        CompilerState {
+            constants: self.constants.clone(),
+            symbol_table: self.symbol_table.clone(),
+        }
+    }
+
     pub fn compile(&mut self, node: Node) -> Result<(), CompileError> {
         match node {
             Node::Program(p) => {
@@ -44,9 +74,25 @@ impl Compiler {
                         self.compile(stmt.into())?;
                     }
                 }
+                Statement::Let(let_stmt) => {
+                    self.compile(let_stmt.value.into())?;
+
+                    let symbol = self.symbol_table.define(&let_stmt.name.value);
+                    self.emit(Opcode::SetGlobal, &[symbol.index]);
+                }
                 _ => println!("unimplemented"),
             },
             Node::Expression(expr) => match expr {
+                Expression::Identifier(ident) => match self.symbol_table.resolve(&ident.value) {
+                    Some(symbol) => {
+                        self.emit(Opcode::GetGlobal, &[symbol.index]);
+                    }
+                    None => {
+                        return Err(CompileError::UndefinedIdentifier {
+                            name: ident.value.clone(),
+                        });
+                    }
+                },
                 Expression::Infix(infix) => {
                     if infix.operator == Operator::LT {
                         self.compile((*infix.right).into())?;
@@ -401,6 +447,50 @@ mod test {
                     code::make(Opcode::Constant, &[2]).unwrap(),
                     // 0011
                     code::make(Opcode::Pop, &[]).unwrap(),
+                ],
+            ),
+        ];
+
+        run_compiler_tests(cases);
+    }
+
+    #[test]
+    fn test_global_let_statements() {
+        let cases = vec![
+            (
+                "let one = 1;
+let two = 2;",
+                vec![1.into(), 2.into()],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::SetGlobal, &[0]).unwrap(),
+                    code::make(Opcode::Constant, &[1]).unwrap(),
+                    code::make(Opcode::SetGlobal, &[1]).unwrap(),
+                ],
+            ),
+            (
+                "let one = 1;
+one;",
+                vec![1.into()],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::SetGlobal, &[0]).unwrap(),
+                    code::make(Opcode::GetGlobal, &[0]).unwrap(),
+                    make_single(Opcode::Pop),
+                ],
+            ),
+            (
+                "let one = 1;
+let two = one;
+two;",
+                vec![1.into()],
+                vec![
+                    code::make(Opcode::Constant, &[0]).unwrap(),
+                    code::make(Opcode::SetGlobal, &[0]).unwrap(),
+                    code::make(Opcode::GetGlobal, &[0]).unwrap(),
+                    code::make(Opcode::SetGlobal, &[1]).unwrap(),
+                    code::make(Opcode::GetGlobal, &[1]).unwrap(),
+                    make_single(Opcode::Pop),
                 ],
             ),
         ];

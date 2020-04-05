@@ -1,7 +1,8 @@
-use crate::compiler::Compiler;
+use crate::compiler::{Compiler, CompilerState};
 use crate::environment::Environment;
 use crate::evaluator;
 use crate::lexer::Lexer;
+use crate::object::Object;
 use crate::parser::Parser;
 use crate::vm::VM;
 use std::io::{self, Write};
@@ -37,6 +38,9 @@ pub fn start_interpreted() {
 
 pub fn start() {
     let mut env = Environment::new();
+
+    let mut compiler_state = CompilerState::default();
+    let mut vm_state: Vec<Object> = vec![Object::Null; 65536];
     loop {
         print!("{}", PROMPT);
         let _ = io::stdout().flush();
@@ -52,18 +56,21 @@ pub fn start() {
                 }
             }
             Ok(program) => {
-                let mut comp = Compiler::default();
+                let mut comp: Compiler = compiler_state.clone().into();
                 if comp.compile(program.into()).is_err() {
                     println!("Compilation error!");
                     continue;
                 }
 
-                let mut machine = VM::new(comp.bytecode());
+                compiler_state = comp.save_state();
+
+                let mut machine = VM::with_state(comp.bytecode(), vm_state.clone());
                 if machine.run().is_err() {
                     println!("Execution error!");
                 }
 
                 println!("{}", machine.last_popped_stack_element());
+                vm_state = machine.into_state();
             }
         }
     }

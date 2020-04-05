@@ -4,6 +4,7 @@ use crate::object::Object;
 use std::convert::TryInto;
 
 pub static STACK_SIZE: usize = 2048;
+pub static GLOBALS_SIZE: usize = 65536;
 
 pub struct VM {
     constants: Vec<Object>,
@@ -11,6 +12,8 @@ pub struct VM {
 
     stack: Vec<Object>,
     sp: usize,
+
+    globals: Vec<Object>,
 }
 
 impl VM {
@@ -21,6 +24,20 @@ impl VM {
 
             stack: vec![Object::Null; STACK_SIZE],
             sp: 0,
+
+            globals: vec![Object::Null; GLOBALS_SIZE],
+        }
+    }
+
+    pub fn with_state(bytecode: compiler::Bytecode, state: Vec<Object>) -> Self {
+        Self {
+            constants: bytecode.constants,
+            instructions: bytecode.instructions,
+
+            stack: vec![Object::Null; STACK_SIZE],
+            sp: 0,
+
+            globals: state,
         }
     }
 
@@ -73,6 +90,18 @@ impl VM {
                 Opcode::Jump => {
                     let pos = code::read_u16(&self.instructions[ip + 1..]);
                     ip = (pos - 1) as usize;
+                }
+                Opcode::SetGlobal => {
+                    let pos = code::read_u16(&self.instructions[ip + 1..]);
+                    ip += 2;
+
+                    self.globals[pos as usize] = self.pop();
+                }
+                Opcode::GetGlobal => {
+                    let pos = code::read_u16(&self.instructions[ip + 1..]);
+                    ip += 2;
+
+                    self.push(self.globals[pos as usize].clone())?
                 }
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
                 _ => {
@@ -160,6 +189,10 @@ impl VM {
     pub(crate) fn last_popped_stack_element(&self) -> &Object {
         &self.stack[self.sp]
     }
+
+    pub fn into_state(self) -> Vec<Object> {
+        self.globals
+    }
 }
 
 #[cfg(test)]
@@ -242,6 +275,17 @@ mod test {
             ("if (1 > 2) { 10 }", Object::Null),
             ("if (false) { 10 }", Object::Null),
             ("if ((if (false) { 10 })) { 10 } else { 20 }", 20.into()),
+        ];
+
+        run_vm_tests(cases);
+    }
+
+    #[test]
+    fn test_global_let_statments() {
+        let cases = vec![
+            ("let one = 1; one", 1.into()),
+            ("let one = 1; let two = 2; one + two", 3.into()),
+            ("let one = 1; let two = one + one; one + two", 3.into()),
         ];
 
         run_vm_tests(cases);

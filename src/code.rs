@@ -31,6 +31,9 @@ pub enum Opcode {
     JumpFalsy,
     Jump,
 
+    GetGlobal,
+    SetGlobal,
+
     Pop,
     Maximum,
 }
@@ -62,6 +65,8 @@ impl Opcode {
             Self::Bang => NO_ARGS,
             Self::JumpFalsy => Some(&[2]),
             Self::Jump => Some(&[2]),
+            Self::GetGlobal => Some(&[2]),
+            Self::SetGlobal => Some(&[2]),
             Self::Maximum => None,
         }
     }
