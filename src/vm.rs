@@ -1,7 +1,19 @@
 use crate::code::{self, Opcode};
 use crate::compiler;
 use crate::object::Object;
+use custom_error::custom_error;
 use std::convert::TryInto;
+
+custom_error! {
+    pub VMError
+
+    UnknownOperator{op: Opcode, left: &'static str, right: &'static str} = "unknown operator: {op} ({left} {right})",
+    StackOverflow = "stack overflow",
+    UnknownStringOperator{op: Opcode} = "unknown string operator: {op}",
+    UnknownIntegerOperator{op: Opcode} = "unknown integer operator: {op}",
+    UnsupportedBinaryTypes{left: &'static str, right: &'static str} = "unsupported types for binary operation: {left} {right}",
+    UnsupportedNegation{type_name: &'static str} = "unsupported type for negation: {type_name}",
+}
 
 pub static STACK_SIZE: usize = 2048;
 pub static GLOBALS_SIZE: usize = 65536;
@@ -49,7 +61,7 @@ impl VM {
         }
     }
 
-    pub fn run(&mut self) -> Result<(), ()> {
+    pub fn run(&mut self) -> Result<(), VMError> {
         let mut ip = 0;
         while ip < self.instructions.len() {
             let op: Opcode = self.instructions[ip].try_into().unwrap();
@@ -122,7 +134,7 @@ impl VM {
         arg
     }
 
-    fn execute_comparison(&mut self, op: Opcode) -> Result<(), ()> {
+    fn execute_comparison(&mut self, op: Opcode) -> Result<(), VMError> {
         let right = self.pop();
         let left = self.pop();
 
@@ -131,26 +143,36 @@ impl VM {
             Opcode::NotEqual => self.push((right != left).into()),
             Opcode::GreaterThan => match (left, right) {
                 (Object::Integer(l), Object::Integer(r)) => self.push((l > r).into()),
-                _ => Err(()),
+                (l, r) => Err(VMError::UnknownOperator {
+                    op,
+                    left: l.type_name(),
+                    right: r.type_name(),
+                }),
             },
-            _ => Err(()),
+            o => Err(VMError::UnknownOperator {
+                op: o,
+                left: left.type_name(),
+                right: right.type_name(),
+            }),
         }
     }
 
-    fn execute_bang_operator(&mut self) -> Result<(), ()> {
+    fn execute_bang_operator(&mut self) -> Result<(), VMError> {
         let operand = self.pop();
         self.push((!operand.truth_value()).into())
     }
 
-    fn execute_minus_operator(&mut self) -> Result<(), ()> {
+    fn execute_minus_operator(&mut self) -> Result<(), VMError> {
         let operand = self.pop();
         match operand {
             Object::Integer(n) => self.push((-n).into()),
-            _ => Err(()),
+            o => Err(VMError::UnsupportedNegation {
+                type_name: o.type_name(),
+            }),
         }
     }
 
-    fn execute_binary_operation(&mut self, op: Opcode) -> Result<(), ()> {
+    fn execute_binary_operation(&mut self, op: Opcode) -> Result<(), VMError> {
         let right = self.pop();
         let left = self.pop();
         match (left, right) {
@@ -160,7 +182,10 @@ impl VM {
             (Object::String(l), Object::String(r)) => {
                 self.execute_binary_string_operation(op, l, r)
             }
-            _ => Err(()),
+            (l, r) => Err(VMError::UnsupportedBinaryTypes {
+                left: l.type_name(),
+                right: r.type_name(),
+            }),
         }
     }
 
@@ -169,13 +194,13 @@ impl VM {
         op: Opcode,
         left: i64,
         right: i64,
-    ) -> Result<(), ()> {
+    ) -> Result<(), VMError> {
         let result = match op {
             Opcode::Add => left + right,
             Opcode::Sub => left - right,
             Opcode::Mul => left * right,
             Opcode::Div => left / right,
-            _ => return Err(()),
+            _ => return Err(VMError::UnknownIntegerOperator { op }),
         };
 
         self.push(result.into())
@@ -186,11 +211,11 @@ impl VM {
         op: Opcode,
         left: String,
         right: String,
-    ) -> Result<(), ()> {
+    ) -> Result<(), VMError> {
         if op == Opcode::Add {
             self.push((left + &right).into())
         } else {
-            Err(())
+            Err(VMError::UnknownStringOperator { op })
         }
     }
 
@@ -202,9 +227,9 @@ impl VM {
             .into()
     }
 
-    fn push(&mut self, obj: Object) -> Result<(), ()> {
+    fn push(&mut self, obj: Object) -> Result<(), VMError> {
         if self.sp >= STACK_SIZE {
-            return Err(()); // stack overflow
+            return Err(VMError::StackOverflow); // stack overflow
         }
 
         self.stack[self.sp] = obj;
