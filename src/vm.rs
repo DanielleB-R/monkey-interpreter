@@ -14,6 +14,7 @@ custom_error! {
     UnsupportedBinaryTypes{left: &'static str, right: &'static str} = "unsupported types for binary operation: {left} {right}",
     UnsupportedNegation{type_name: &'static str} = "unsupported type for negation: {type_name}",
     ErrorEval{source: EvalError} = "{source}",
+    Unindexable{type_name: &'static str} = "index operator not supported: {type_name}",
 }
 
 pub static STACK_SIZE: usize = 2048;
@@ -83,6 +84,12 @@ impl VM {
                 }
                 Opcode::Minus => {
                     self.execute_minus_operator()?;
+                }
+                Opcode::Index => {
+                    let index = self.pop();
+                    let left = self.pop();
+
+                    self.execute_index_expression(left, index)?;
                 }
                 Opcode::Pop => {
                     self.pop();
@@ -242,6 +249,28 @@ impl VM {
                 .insert(pair[0].clone().try_into()?, pair[1].clone().into());
         }
         Ok(hash.into())
+    }
+
+    fn execute_index_expression(&mut self, left: Object, index: Object) -> Result<(), VMError> {
+        match (left, index) {
+            (Object::Array(arr), Object::Integer(int)) => self.execute_array_index(arr, int),
+            (Object::Hash(hash), ind) => self.execute_hash_index(hash, ind),
+            (obj, _) => Err(VMError::Unindexable {
+                type_name: obj.type_name(),
+            }),
+        }
+    }
+
+    fn execute_array_index(&mut self, left: Vec<Object>, index: i64) -> Result<(), VMError> {
+        self.push(left.into_iter().nth(index as usize).unwrap_or(Object::Null))
+    }
+
+    fn execute_hash_index(&mut self, mut left: HashValue, index: Object) -> Result<(), VMError> {
+        self.push(
+            left.values
+                .remove(&index.try_into()?)
+                .unwrap_or(Object::Null),
+        )
     }
 
     fn push(&mut self, obj: Object) -> Result<(), VMError> {
@@ -409,6 +438,23 @@ mod test {
                     .collect::<HashValue>()
                     .into(),
             ),
+        ];
+
+        run_vm_tests(cases);
+    }
+
+    #[test]
+    fn test_index_expressions() {
+        let cases = vec![
+            ("[1, 2, 3][1]", 2.into()),
+            ("[1, 2, 3][0 + 2]", 3.into()),
+            ("[[1, 1, 1]][0][0]", 1.into()),
+            ("[][0]", Object::Null),
+            ("[1, 2, 3][99]", Object::Null),
+            ("[1][-1]", Object::Null),
+            ("{1: 1, 2: 2}[2]", 2.into()),
+            ("{1: 1}[0]", Object::Null),
+            ("{}[0]", Object::Null),
         ];
 
         run_vm_tests(cases);

@@ -124,6 +124,11 @@ impl Compiler {
                         op => return Err(CompileError::UnknownOperator { op }),
                     };
                 }
+                Expression::Index(ind) => {
+                    self.compile((*ind.left).into())?;
+                    self.compile((*ind.index).into())?;
+                    self.emit(Opcode::Index, &[]);
+                }
                 Expression::IntegerLiteral(int) => {
                     let constant = self.add_constant(int.value.into());
                     self.emit(Opcode::Constant, &[constant]);
@@ -626,6 +631,43 @@ two;",
                     make_constant(5),
                     make_single(Opcode::Mul),
                     code::make(Opcode::Hash, &[4]).unwrap(),
+                    make_single(Opcode::Pop),
+                ],
+            ),
+        ];
+
+        run_compiler_tests(cases);
+    }
+
+    #[test]
+    fn test_index_expressions() {
+        let cases = vec![
+            (
+                "[1, 2, 3][1 + 1]",
+                vec![1.into(), 2.into(), 3.into(), 1.into(), 1.into()],
+                vec![
+                    make_constant(0),
+                    make_constant(1),
+                    make_constant(2),
+                    code::make(Opcode::Array, &[3]).unwrap(),
+                    make_constant(3),
+                    make_constant(4),
+                    make_single(Opcode::Add),
+                    make_single(Opcode::Index),
+                    make_single(Opcode::Pop),
+                ],
+            ),
+            (
+                "{1: 2}[2 - 1]",
+                vec![1.into(), 2.into(), 2.into(), 1.into()],
+                vec![
+                    make_constant(0),
+                    make_constant(1),
+                    code::make(Opcode::Hash, &[2]).unwrap(),
+                    make_constant(2),
+                    make_constant(3),
+                    make_single(Opcode::Sub),
+                    make_single(Opcode::Index),
                     make_single(Opcode::Pop),
                 ],
             ),

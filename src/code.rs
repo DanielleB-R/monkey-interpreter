@@ -26,6 +26,7 @@ pub enum Opcode {
     Equal,
     NotEqual,
     GreaterThan,
+    Index,
 
     Minus,
     Bang,
@@ -58,6 +59,7 @@ impl Opcode {
             Self::Sub => NO_ARGS,
             Self::Mul => NO_ARGS,
             Self::Div => NO_ARGS,
+            Self::Index => NO_ARGS,
             Self::Pop => NO_ARGS,
             Self::True => NO_ARGS,
             Self::False => NO_ARGS,
