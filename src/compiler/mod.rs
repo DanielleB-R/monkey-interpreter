@@ -146,6 +146,15 @@ impl Compiler {
                     }
                     self.emit(Opcode::Array, &[len]);
                 }
+                Expression::Hash(hash) => {
+                    let len = hash.pairs.len() * 2;
+                    for (key, value) in hash.pairs {
+                        self.compile(key.into())?;
+                        self.compile(value.into())?;
+                    }
+
+                    self.emit(Opcode::Hash, &[len as isize]);
+                }
                 Expression::If(expr) => {
                     self.compile((*expr.condition).into())?;
 
@@ -579,6 +588,52 @@ two;",
         run_compiler_tests(cases);
     }
 
+    #[test]
+    fn test_hash_literals() {
+        let cases = vec![
+            (
+                "{}",
+                vec![],
+                vec![
+                    code::make(Opcode::Hash, &[0]).unwrap(),
+                    make_single(Opcode::Pop),
+                ],
+            ),
+            (
+                "{1: 2, 3: 4, 5: 6}",
+                vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into(), 6.into()],
+                vec![
+                    make_constant(0),
+                    make_constant(1),
+                    make_constant(2),
+                    make_constant(3),
+                    make_constant(4),
+                    make_constant(5),
+                    code::make(Opcode::Hash, &[6]).unwrap(),
+                    make_single(Opcode::Pop),
+                ],
+            ),
+            (
+                "{1: 2 + 3, 4: 5 * 6}",
+                vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into(), 6.into()],
+                vec![
+                    make_constant(0),
+                    make_constant(1),
+                    make_constant(2),
+                    make_single(Opcode::Add),
+                    make_constant(3),
+                    make_constant(4),
+                    make_constant(5),
+                    make_single(Opcode::Mul),
+                    code::make(Opcode::Hash, &[4]).unwrap(),
+                    make_single(Opcode::Pop),
+                ],
+            ),
+        ];
+
+        run_compiler_tests(cases);
+    }
+
     fn run_compiler_tests(cases: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
         for (input, constants, instructions) in cases.into_iter() {
             let program = parse(input);
@@ -594,6 +649,10 @@ two;",
 
     fn make_single(opcode: Opcode) -> Instructions {
         code::make(opcode, &[]).unwrap()
+    }
+
+    fn make_constant(index: isize) -> Instructions {
+        code::make(Opcode::Constant, &[index]).unwrap()
     }
 
     fn parse(input: &str) -> ast::Program {

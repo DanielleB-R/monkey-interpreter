@@ -4,6 +4,7 @@ use custom_error::custom_error;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt::{self, Display, Formatter};
+use std::iter::FromIterator;
 
 custom_error! {
     #[derive(Clone, PartialEq)]
@@ -115,6 +116,12 @@ impl From<Vec<Object>> for Object {
     }
 }
 
+impl From<HashValue> for Object {
+    fn from(h: HashValue) -> Self {
+        Self::Hash(h)
+    }
+}
+
 impl Object {
     pub fn is_return_value(&self) -> bool {
         match self {
@@ -189,6 +196,30 @@ impl Display for HashKey {
     }
 }
 
+impl From<i64> for HashKey {
+    fn from(n: i64) -> Self {
+        Self::Integer(n)
+    }
+}
+
+impl From<bool> for HashKey {
+    fn from(b: bool) -> Self {
+        Self::Boolean(b)
+    }
+}
+
+impl From<String> for HashKey {
+    fn from(s: String) -> Self {
+        Self::String(s)
+    }
+}
+
+impl From<&str> for HashKey {
+    fn from(s: &str) -> Self {
+        s.to_owned().into()
+    }
+}
+
 impl TryFrom<Object> for HashKey {
     type Error = EvalError;
 
@@ -204,9 +235,17 @@ impl TryFrom<Object> for HashKey {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct HashValue {
     pub values: HashMap<HashKey, Object>,
+}
+
+impl FromIterator<(HashKey, Object)> for HashValue {
+    fn from_iter<I: IntoIterator<Item = (HashKey, Object)>>(iter: I) -> Self {
+        Self {
+            values: iter.into_iter().collect(),
+        }
+    }
 }
 
 impl Display for HashValue {

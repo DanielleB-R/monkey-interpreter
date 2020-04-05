@@ -1,6 +1,6 @@
 use crate::code::{self, Opcode};
 use crate::compiler;
-use crate::object::Object;
+use crate::object::{EvalError, HashValue, Object};
 use custom_error::custom_error;
 use std::convert::TryInto;
 
@@ -13,6 +13,7 @@ custom_error! {
     UnknownIntegerOperator{op: Opcode} = "unknown integer operator: {op}",
     UnsupportedBinaryTypes{left: &'static str, right: &'static str} = "unsupported types for binary operation: {left} {right}",
     UnsupportedNegation{type_name: &'static str} = "unsupported type for negation: {type_name}",
+    ErrorEval{source: EvalError} = "{source}",
 }
 
 pub static STACK_SIZE: usize = 2048;
@@ -117,6 +118,13 @@ impl VM {
                     let arr = self.build_array(self.sp - len, self.sp);
                     self.sp -= len;
                     self.push(arr)?;
+                }
+                Opcode::Hash => {
+                    let len = self.get_u16_arg(&mut ip) as usize;
+
+                    let hash = self.build_hash(self.sp - len, self.sp)?;
+                    self.sp -= len;
+                    self.push(hash)?;
                 }
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
                 _ => {
@@ -225,6 +233,15 @@ impl VM {
             .cloned()
             .collect::<Vec<Object>>()
             .into()
+    }
+
+    fn build_hash(&self, start_index: usize, end_index: usize) -> Result<Object, VMError> {
+        let mut hash: HashValue = Default::default();
+        for pair in self.stack[start_index..end_index].chunks(2) {
+            hash.values
+                .insert(pair[0].clone().try_into()?, pair[1].clone().into());
+        }
+        Ok(hash.into())
     }
 
     fn push(&mut self, obj: Object) -> Result<(), VMError> {
@@ -368,6 +385,29 @@ mod test {
             (
                 "[1 + 2, 3 * 4, 5 + 6]",
                 vec![3.into(), 12.into(), 11.into()].into(),
+            ),
+        ];
+
+        run_vm_tests(cases);
+    }
+
+    #[test]
+    fn test_hash_literals() {
+        let cases = vec![
+            ("{}", HashValue::default().into()),
+            (
+                "{1: 2, 2: 3}",
+                vec![(1.into(), 2.into()), (2.into(), 3.into())]
+                    .into_iter()
+                    .collect::<HashValue>()
+                    .into(),
+            ),
+            (
+                "{1 + 1: 2 * 2, 3 + 3: 4 * 4}",
+                vec![(2.into(), 4.into()), (6.into(), 16.into())]
+                    .into_iter()
+                    .collect::<HashValue>()
+                    .into(),
             ),
         ];
 

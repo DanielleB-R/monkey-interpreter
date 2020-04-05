@@ -17,6 +17,7 @@ pub enum Opcode {
     False,
     Null,
     Array,
+    Hash,
 
     Add,
     Sub,
@@ -52,6 +53,7 @@ impl Opcode {
         match self {
             Self::Constant => Some(&[2]),
             Self::Array => Some(&[2]),
+            Self::Hash => Some(&[2]),
             Self::Add => NO_ARGS,
             Self::Sub => NO_ARGS,
             Self::Mul => NO_ARGS,
