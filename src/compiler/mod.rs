@@ -197,6 +197,10 @@ impl Compiler {
                     let const_index = self.add_constant(instructions.into());
                     self.emit(Opcode::Constant, &[const_index]);
                 }
+                Expression::Call(c) => {
+                    self.compile((*c.function).into())?;
+                    self.emit(Opcode::Call, &[]);
+                }
                 Expression::If(expr) => {
                     self.compile((*expr.condition).into())?;
 

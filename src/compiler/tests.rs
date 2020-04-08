@@ -507,6 +507,24 @@ fn test_functions_without_return_value() {
     run_compiler_tests(cases);
 }
 
+#[test]
+fn test_function_calls() {
+    let cases = vec![(
+        "fn () { 24 }();",
+        vec![
+            24.into(),
+            concat_instructions(vec![make_constant(0), make_single(Opcode::ReturnValue)]).into(),
+        ],
+        vec![
+            make_constant(1),
+            make_single(Opcode::Call),
+            make_single(Opcode::Pop),
+        ],
+    )];
+
+    run_compiler_tests(cases)
+}
+
 fn run_compiler_tests(cases: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
     for (input, constants, instructions) in cases.into_iter() {
         let program = parse(input);
