@@ -1,4 +1,5 @@
 use crate::ast;
+use crate::code::{concat_instructions, Instructions};
 use crate::environment::Environment;
 use custom_error::custom_error;
 use std::collections::HashMap;
@@ -50,6 +51,7 @@ pub type Builtin = fn(Vec<Object>) -> Result<Object>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
     Function(FunctionObject),
+    CompiledFunction(CompiledFunction),
     Builtin(Builtin),
     ReturnValue(Box<Object>),
     Integer(i64),
@@ -64,6 +66,7 @@ impl Display for Object {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Function(func) => write!(f, "{}", func),
+            Self::CompiledFunction(func) => write!(f, "{}", func),
             Self::Builtin(_) => write!(f, "builtin function"),
             Self::ReturnValue(obj) => write!(f, "{}", obj),
             Self::Integer(n) => write!(f, "{}", n),
@@ -122,6 +125,12 @@ impl From<HashValue> for Object {
     }
 }
 
+impl From<Instructions> for Object {
+    fn from(i: Instructions) -> Self {
+        Self::CompiledFunction(CompiledFunction { instructions: i })
+    }
+}
+
 impl Object {
     pub fn is_return_value(&self) -> bool {
         match self {
@@ -140,6 +149,7 @@ impl Object {
     pub fn type_name(&self) -> &'static str {
         match self {
             Self::Function(_) => "FUNCTION",
+            Self::CompiledFunction(_) => "COMPILED_FUNCTION",
             Self::Builtin(_) => "BUILTIN",
             Self::ReturnValue(o) => o.type_name(),
             Self::Boolean(_) => "BOOLEAN",
@@ -168,7 +178,7 @@ pub struct FunctionObject {
 }
 
 impl Display for FunctionObject {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let identifier_names: Vec<String> = self
             .parameters
             .iter()
@@ -176,6 +186,17 @@ impl Display for FunctionObject {
             .collect();
 
         write!(f, "fn({}) {}", identifier_names.join(", "), self.body)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompiledFunction {
+    pub instructions: Instructions,
+}
+
+impl Display for CompiledFunction {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "CompiledFunction[{}]", self.instructions)
     }
 }
 

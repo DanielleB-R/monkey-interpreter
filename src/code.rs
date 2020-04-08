@@ -37,6 +37,10 @@ pub enum Opcode {
     GetGlobal,
     SetGlobal,
 
+    Call,
+    ReturnValue,
+    Return,
+
     Pop,
     Maximum,
 }
@@ -73,6 +77,9 @@ impl Opcode {
             Self::Jump => Some(&[2]),
             Self::GetGlobal => Some(&[2]),
             Self::SetGlobal => Some(&[2]),
+            Self::Call => NO_ARGS,
+            Self::ReturnValue => NO_ARGS,
+            Self::Return => NO_ARGS,
             Self::Maximum => None,
         }
     }

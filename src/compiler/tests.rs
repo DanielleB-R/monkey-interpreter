@@ -1,9 +1,40 @@
-
 use super::*;
 use crate::ast;
-use crate::code::{self, concat_instructions, Opcode};
+use crate::code::{self, concat_instructions};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+
+#[test]
+fn test_compiler_scopes() {
+    let mut compiler = Compiler::default();
+    assert_eq!(compiler.scope_index, 0);
+
+    compiler.emit(Opcode::Mul, &[]);
+
+    compiler.enter_scope();
+    assert_eq!(compiler.scope_index, 1);
+    compiler.emit(Opcode::Sub, &[]);
+
+    assert_eq!(compiler.scopes[compiler.scope_index].instructions.len(), 1);
+    assert_eq!(
+        compiler.scopes[compiler.scope_index].last.opcode,
+        Opcode::Sub
+    );
+
+    compiler.leave_scope();
+    assert_eq!(compiler.scope_index, 0);
+    compiler.emit(Opcode::Add, &[]);
+
+    assert_eq!(compiler.scopes[compiler.scope_index].instructions.len(), 2);
+    assert_eq!(
+        compiler.scopes[compiler.scope_index].last.opcode,
+        Opcode::Add
+    );
+    assert_eq!(
+        compiler.scopes[compiler.scope_index].previous.opcode,
+        Opcode::Mul
+    );
+}
 
 #[test]
 fn test_integer_arithmetic() {
@@ -408,6 +439,70 @@ fn test_index_expressions() {
             ],
         ),
     ];
+
+    run_compiler_tests(cases);
+}
+
+#[test]
+fn test_functions() {
+    let cases = vec![
+        (
+            "fn() { return 5 + 10; }",
+            vec![
+                5.into(),
+                10.into(),
+                concat_instructions(vec![
+                    make_constant(0),
+                    make_constant(1),
+                    make_single(Opcode::Add),
+                    make_single(Opcode::ReturnValue),
+                ])
+                .into(),
+            ],
+            vec![make_constant(2), make_single(Opcode::Pop)],
+        ),
+        (
+            "fn() { 5 + 10; }",
+            vec![
+                5.into(),
+                10.into(),
+                concat_instructions(vec![
+                    make_constant(0),
+                    make_constant(1),
+                    make_single(Opcode::Add),
+                    make_single(Opcode::ReturnValue),
+                ])
+                .into(),
+            ],
+            vec![make_constant(2), make_single(Opcode::Pop)],
+        ),
+        (
+            "fn() { 1; 2 }",
+            vec![
+                1.into(),
+                2.into(),
+                concat_instructions(vec![
+                    make_constant(0),
+                    make_single(Opcode::Pop),
+                    make_constant(1),
+                    make_single(Opcode::ReturnValue),
+                ])
+                .into(),
+            ],
+            vec![make_constant(2), make_single(Opcode::Pop)],
+        ),
+    ];
+
+    run_compiler_tests(cases)
+}
+
+#[test]
+fn test_functions_without_return_value() {
+    let cases = vec![(
+        "fn() { }",
+        vec![make_single(Opcode::Return).into()],
+        vec![make_constant(0), make_single(Opcode::Pop)],
+    )];
 
     run_compiler_tests(cases);
 }
