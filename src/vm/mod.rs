@@ -1,7 +1,10 @@
+mod frame;
+
 use crate::code::{self, Opcode};
 use crate::compiler;
 use crate::object::{EvalError, HashValue, Object};
 use custom_error::custom_error;
+use frame::Frame;
 use std::convert::TryInto;
 
 custom_error! {
@@ -28,10 +31,15 @@ pub struct VM {
     sp: usize,
 
     globals: Vec<Object>,
+
+    frames: Vec<Frame>,
+    frames_index: usize,
 }
 
 impl VM {
     pub fn new(bytecode: compiler::Bytecode) -> Self {
+        let main_frame = bytecode.instructions.clone().into();
+
         Self {
             constants: bytecode.constants,
             instructions: bytecode.instructions,
@@ -40,10 +48,14 @@ impl VM {
             sp: 0,
 
             globals: vec![Object::Null; GLOBALS_SIZE],
+
+            frames: vec![main_frame],
+            frames_index: 1,
         }
     }
 
     pub fn with_state(bytecode: compiler::Bytecode, state: Vec<Object>) -> Self {
+        let main_frame = bytecode.instructions.clone().into();
         Self {
             constants: bytecode.constants,
             instructions: bytecode.instructions,
@@ -52,7 +64,23 @@ impl VM {
             sp: 0,
 
             globals: state,
+            frames: vec![main_frame],
+            frames_index: 1,
         }
+    }
+
+    fn current_frame(&mut self) -> &mut Frame {
+        &mut self.frames[self.frames_index - 1]
+    }
+
+    fn push_frame(&mut self, frame: Frame) {
+        self.frames[self.frames_index] = frame;
+        self.frames_index += 1;
+    }
+
+    fn pop_frame(&mut self) -> Frame {
+        self.frames_index -= 1;
+        self.frames[self.frames_index].clone()
     }
 
     pub fn stack_top(&self) -> Option<&Object> {
