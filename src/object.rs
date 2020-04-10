@@ -1,5 +1,5 @@
 use crate::ast;
-use crate::code::{concat_instructions, Instructions};
+use crate::code::Instructions;
 use crate::environment::Environment;
 use custom_error::custom_error;
 use std::collections::HashMap;

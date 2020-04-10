@@ -37,8 +37,6 @@ pub fn start_interpreted() {
 }
 
 pub fn start() {
-    let mut env = Environment::new();
-
     let mut compiler_state = CompilerState::default();
     let mut vm_state: Vec<Object> = vec![Object::Null; 65536];
     loop {

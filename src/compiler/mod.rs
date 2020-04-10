@@ -260,7 +260,7 @@ impl Compiler {
     }
 
     pub fn add_instruction(&mut self, ins: Instructions) -> usize {
-        let mut instructions = self.current_instructions();
+        let instructions = self.current_instructions();
         let pos = instructions.len();
         instructions.append(ins);
         pos
@@ -284,7 +284,7 @@ impl Compiler {
     }
 
     fn change_operand(&mut self, pos: usize, operand: isize) {
-        let mut instructions = self.current_instructions();
+        let instructions = self.current_instructions();
         instructions.replace_instruction(
             pos,
             code::make(

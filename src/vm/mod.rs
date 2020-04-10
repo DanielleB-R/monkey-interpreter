@@ -18,6 +18,7 @@ custom_error! {
     UnsupportedNegation{type_name: &'static str} = "unsupported type for negation: {type_name}",
     ErrorEval{source: EvalError} = "{source}",
     Unindexable{type_name: &'static str} = "index operator not supported: {type_name}",
+    Uncallable = "calling non-function",
 }
 
 pub static STACK_SIZE: usize = 2048;
@@ -25,7 +26,6 @@ pub static GLOBALS_SIZE: usize = 65536;
 
 pub struct VM {
     constants: Vec<Object>,
-    instructions: code::Instructions,
 
     stack: Vec<Object>,
     sp: usize,
@@ -38,33 +38,28 @@ pub struct VM {
 
 impl VM {
     pub fn new(bytecode: compiler::Bytecode) -> Self {
-        let main_frame = bytecode.instructions.clone().into();
-
         Self {
             constants: bytecode.constants,
-            instructions: bytecode.instructions,
 
             stack: vec![Object::Null; STACK_SIZE],
             sp: 0,
 
             globals: vec![Object::Null; GLOBALS_SIZE],
 
-            frames: vec![main_frame],
+            frames: vec![bytecode.instructions.into()],
             frames_index: 1,
         }
     }
 
     pub fn with_state(bytecode: compiler::Bytecode, state: Vec<Object>) -> Self {
-        let main_frame = bytecode.instructions.clone().into();
         Self {
             constants: bytecode.constants,
-            instructions: bytecode.instructions,
 
             stack: vec![Object::Null; STACK_SIZE],
             sp: 0,
 
             globals: state,
-            frames: vec![main_frame],
+            frames: vec![bytecode.instructions.into()],
             frames_index: 1,
         }
     }
@@ -74,13 +69,13 @@ impl VM {
     }
 
     fn push_frame(&mut self, frame: Frame) {
-        self.frames[self.frames_index] = frame;
+        self.frames.push(frame);
         self.frames_index += 1;
     }
 
     fn pop_frame(&mut self) -> Frame {
         self.frames_index -= 1;
-        self.frames[self.frames_index].clone()
+        self.frames.pop().unwrap()
     }
 
     pub fn stack_top(&self) -> Option<&Object> {
@@ -92,13 +87,16 @@ impl VM {
     }
 
     pub fn run(&mut self) -> Result<(), VMError> {
-        let mut ip = 0;
-        while ip < self.instructions.len() {
-            let op: Opcode = self.instructions[ip].try_into().unwrap();
+        let mut ip;
+        while self.current_frame().ip < ((self.current_frame().instructions().len()) - 1) as isize {
+            self.current_frame().ip += 1;
+
+            ip = self.current_frame().ip as usize;
+            let op: Opcode = self.current_frame().instructions()[ip].try_into().unwrap();
 
             match op {
                 Opcode::Constant => {
-                    let const_index = self.get_u16_arg(&mut ip);
+                    let const_index = self.get_u16_arg(ip);
                     self.push(self.constants[const_index as usize].clone())?;
                 }
                 Opcode::Add | Opcode::Sub | Opcode::Mul | Opcode::Div => {
@@ -126,54 +124,70 @@ impl VM {
                 Opcode::False => self.push(false.into())?,
                 Opcode::Null => self.push(Object::Null)?,
                 Opcode::JumpFalsy => {
-                    let target = self.get_u16_arg(&mut ip);
+                    let target = self.get_u16_arg(ip);
                     let condition = self.pop();
 
                     if !condition.truth_value() {
-                        ip = (target - 1) as usize;
+                        self.current_frame().ip = (target - 1) as isize;
                     }
                 }
                 Opcode::Jump => {
-                    let target = self.get_u16_arg(&mut ip);
-                    ip = (target - 1) as usize;
+                    let target = self.get_u16_arg(ip);
+                    self.current_frame().ip = (target - 1) as isize;
                 }
                 Opcode::SetGlobal => {
-                    let index = self.get_u16_arg(&mut ip);
+                    let index = self.get_u16_arg(ip);
 
                     self.globals[index as usize] = self.pop();
                 }
                 Opcode::GetGlobal => {
-                    let pos = self.get_u16_arg(&mut ip);
+                    let pos = self.get_u16_arg(ip);
 
                     self.push(self.globals[pos as usize].clone())?
                 }
                 Opcode::Array => {
-                    let len = self.get_u16_arg(&mut ip) as usize;
+                    let len = self.get_u16_arg(ip) as usize;
 
                     let arr = self.build_array(self.sp - len, self.sp);
                     self.sp -= len;
                     self.push(arr)?;
                 }
                 Opcode::Hash => {
-                    let len = self.get_u16_arg(&mut ip) as usize;
+                    let len = self.get_u16_arg(ip) as usize;
 
                     let hash = self.build_hash(self.sp - len, self.sp)?;
                     self.sp -= len;
                     self.push(hash)?;
+                }
+                Opcode::Call => {
+                    let top = self.stack[self.sp - 1].clone();
+                    match top {
+                        Object::CompiledFunction(cf) => {
+                            self.push_frame(cf.instructions.into());
+                        }
+                        _ => return Err(VMError::Uncallable),
+                    }
+                }
+                Opcode::ReturnValue => {
+                    let return_value = self.pop();
+
+                    self.pop_frame();
+                    self.pop();
+                    self.push(return_value)?;
                 }
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
                 _ => {
                     println!("unimplemented");
                 }
             }
-            ip += 1;
         }
         Ok(())
     }
 
-    fn get_u16_arg(&mut self, ip: &mut usize) -> u16 {
-        let arg = code::read_u16(&self.instructions[*ip + 1..]);
-        *ip += 2;
+    fn get_u16_arg(&mut self, ip: usize) -> u16 {
+        let frame = self.current_frame();
+        let arg = code::read_u16(&frame.instructions()[ip + 1..]);
+        frame.ip += 2;
         arg
     }
 
@@ -484,6 +498,19 @@ mod test {
             ("{1: 1}[0]", Object::Null),
             ("{}[0]", Object::Null),
         ];
+
+        run_vm_tests(cases);
+    }
+
+    #[test]
+    fn test_calling_functions_without_arguments() {
+        let cases = vec![(
+            "
+let fivePlusTen = fn() { 5 + 10; };
+fivePlusTen();
+",
+            15.into(),
+        )];
 
         run_vm_tests(cases);
     }
