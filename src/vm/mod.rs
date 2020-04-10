@@ -175,6 +175,11 @@ impl VM {
                     self.pop();
                     self.push(return_value)?;
                 }
+                Opcode::Return => {
+                    self.pop_frame();
+                    self.pop();
+                    self.push(Object::Null)?;
+                }
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
                 _ => {
                     println!("unimplemented");
@@ -504,15 +509,70 @@ mod test {
 
     #[test]
     fn test_calling_functions_without_arguments() {
-        let cases = vec![(
-            "
+        let cases = vec![
+            (
+                "
 let fivePlusTen = fn() { 5 + 10; };
 fivePlusTen();
 ",
-            15.into(),
-        )];
+                15.into(),
+            ),
+            (
+                "
+let one = fn() { 1; };
+let two = fn() { 2; };
+one() + two()",
+                3.into(),
+            ),
+            (
+                "
+let a = fn() { 1 };
+let b = fn() { a() + 1 };
+let c = fn() { b() + 1 };
+c();",
+                3.into(),
+            ),
+            (
+                "
+let earlyExit = fn() { return 99; 100; };
+earlyExit();",
+                99.into(),
+            ),
+            (
+                "
+let earlyExit = fn() { return 99; return 100; };
+earlyExit();",
+                99.into(),
+            ),
+            (
+                "
+let noReturn = fn() { };
+noReturn()",
+                Object::Null,
+            ),
+            (
+                "
+let noReturn = fn() { };
+let noReturnTwo = fn() { noReturn(); };
+noReturn();
+noReturnTwo();",
+                Object::Null,
+            ),
+        ];
 
         run_vm_tests(cases);
+    }
+
+    #[test]
+    fn test_first_class_functions() {
+        let cases = vec![(
+            "let returnsOne = fn() { 1; };
+let returnsOneReturner = fn() { returnsOne; };
+returnsOneReturner()();",
+            1.into(),
+        )];
+
+        run_vm_tests(cases)
     }
 
     fn parse(input: &str) -> ast::Program {
