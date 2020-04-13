@@ -1,9 +1,14 @@
 use crate::ast::{self, Node};
-use crate::builtins::BUILTINS;
+use crate::builtins;
 use crate::environment::Environment;
 use crate::object::{EvalError, FunctionObject, HashKey, HashValue, Object, Result};
+use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::convert::TryInto;
+
+lazy_static! {
+    pub static ref BUILTINS: HashMap<String, Object> = builtins::BUILTINS.iter().cloned().collect();
+}
 
 pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
     match node {
