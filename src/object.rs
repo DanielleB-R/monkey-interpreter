@@ -136,6 +136,7 @@ impl From<Instructions> for Object {
         CompiledFunction {
             instructions: i,
             num_locals: 0,
+            num_parameters: 0,
         }
         .into()
     }
@@ -203,6 +204,7 @@ impl Display for FunctionObject {
 pub struct CompiledFunction {
     pub instructions: Instructions,
     pub num_locals: isize,
+    pub num_parameters: usize,
 }
 
 impl Display for CompiledFunction {
@@ -212,10 +214,11 @@ impl Display for CompiledFunction {
 }
 
 impl CompiledFunction {
-    pub fn new(instructions: Instructions, num_locals: isize) -> Self {
+    pub fn new(instructions: Instructions, num_locals: isize, num_parameters: usize) -> Self {
         Self {
             instructions,
             num_locals,
+            num_parameters,
         }
     }
 }

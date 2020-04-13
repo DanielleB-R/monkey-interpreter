@@ -8,6 +8,7 @@ use frame::Frame;
 use std::convert::TryInto;
 
 custom_error! {
+    #[derive(PartialEq)]
     pub VMError
 
     UnknownOperator{op: Opcode, left: &'static str, right: &'static str} = "unknown operator: {op} ({left} {right})",
@@ -19,6 +20,7 @@ custom_error! {
     ErrorEval{source: EvalError} = "{source}",
     Unindexable{type_name: &'static str} = "index operator not supported: {type_name}",
     Uncallable = "calling non-function",
+    WrongArgumentCount{expected: usize, found: usize} = "wrong number of arguments: want={expected}, got={found}",
 }
 
 pub static STACK_SIZE: usize = 2048;
@@ -173,14 +175,9 @@ impl VM {
                     self.push(hash)?;
                 }
                 Opcode::Call => {
-                    let top = self.stack[self.sp - 1].clone();
-                    match top {
-                        Object::CompiledFunction(cf) => {
-                            self.push_frame(Frame::new(cf.instructions, self.sp as isize));
-                            self.sp += cf.num_locals as usize;
-                        }
-                        _ => return Err(VMError::Uncallable),
-                    }
+                    let num_args = self.get_u8_arg(ip) as usize;
+
+                    self.call_function(num_args)?;
                 }
                 Opcode::ReturnValue => {
                     let return_value = self.pop();
@@ -217,6 +214,24 @@ impl VM {
         let arg = frame.instructions()[ip + 1];
         frame.ip += 1;
         arg
+    }
+
+    fn call_function(&mut self, num_args: usize) -> Result<(), VMError> {
+        let top = self.stack[self.sp - 1 - num_args].clone();
+        match top {
+            Object::CompiledFunction(cf) => {
+                if num_args != cf.num_parameters {
+                    return Err(VMError::WrongArgumentCount {
+                        expected: cf.num_parameters,
+                        found: num_args,
+                    });
+                }
+                self.push_frame(Frame::new(cf.instructions, (self.sp - num_args) as isize));
+                self.sp += cf.num_locals as usize;
+            }
+            _ => return Err(VMError::Uncallable),
+        };
+        Ok(())
     }
 
     fn execute_comparison(&mut self, op: Opcode) -> Result<(), VMError> {
@@ -649,6 +664,98 @@ let num = 1;
         ];
 
         run_vm_tests(cases)
+    }
+
+    #[test]
+    fn test_calling_functions_with_arguments_and_bindings() {
+        let cases = vec![
+            (
+                "let identity = fn(a) { a; };
+           identity(4);",
+                4.into(),
+            ),
+            (
+                "let sum = fn(a, b) { a + b; };
+           sum(1, 2);",
+                3.into(),
+            ),
+            (
+                "let sum = fn(a, b) {
+               let c = a + b;
+  c;
+};
+sum(1, 2);",
+                3.into(),
+            ),
+            (
+                "let sum = fn(a, b) {
+               let c = a + b;
+c; };
+           sum(1, 2) + sum(3, 4);",
+                10.into(),
+            ),
+            (
+                "let sum = fn(a, b) {
+let c = a + b;
+c; };
+           let outer = fn() {
+               sum(1, 2) + sum(3, 4);
+           };
+           outer();",
+                10.into(),
+            ),
+            (
+                "let globalNum = 10;
+           let sum = fn(a, b) {
+               let c = a + b;
+               c + globalNum;
+};
+           let outer = fn() {
+               sum(1, 2) + sum(3, 4) + globalNum;
+};
+           outer() + globalNum;",
+                50.into(),
+            ),
+        ];
+
+        run_vm_tests(cases)
+    }
+
+    #[test]
+    fn test_calling_functions_with_wrong_arguments() {
+        let cases = vec![
+            (
+                "fn() { 1; }(1);",
+                VMError::WrongArgumentCount {
+                    expected: 0,
+                    found: 1,
+                },
+            ),
+            (
+                "fn(a) { a; }();",
+                VMError::WrongArgumentCount {
+                    expected: 1,
+                    found: 0,
+                },
+            ),
+            (
+                "fn(a, b) { a + b; }(1);",
+                VMError::WrongArgumentCount {
+                    expected: 2,
+                    found: 1,
+                },
+            ),
+        ];
+
+        for (input, err) in cases {
+            let program = parse(input);
+
+            let mut comp = Compiler::default();
+            comp.compile(program.into()).unwrap();
+
+            let mut vm = VM::new(comp.bytecode());
+            assert_eq!(vm.run().unwrap_err(), err);
+        }
     }
 
     fn parse(input: &str) -> ast::Program {

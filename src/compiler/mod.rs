@@ -196,6 +196,12 @@ impl Compiler {
                 }
                 Expression::Function(f) => {
                     self.enter_scope();
+
+                    let num_params = f.parameters.len();
+                    for param in f.parameters {
+                        self.symbol_table.define(&param.value);
+                    }
+
                     self.compile(Statement::Block(f.body).into())?;
 
                     if self.last_instruction_is(Opcode::Pop) {
@@ -208,13 +214,20 @@ impl Compiler {
                     let num_locals = self.symbol_table.num_definitions;
                     let instructions = self.leave_scope();
 
-                    let const_index =
-                        self.add_constant(CompiledFunction::new(instructions, num_locals).into());
+                    let const_index = self.add_constant(
+                        CompiledFunction::new(instructions, num_locals, num_params).into(),
+                    );
                     self.emit(Opcode::Constant, &[const_index]);
                 }
                 Expression::Call(c) => {
                     self.compile((*c.function).into())?;
-                    self.emit(Opcode::Call, &[]);
+
+                    let arg_count = c.arguments.len();
+                    for arg in c.arguments {
+                        self.compile(arg.into())?;
+                    }
+
+                    self.emit(Opcode::Call, &[arg_count as isize]);
                 }
                 Expression::If(expr) => {
                     self.compile((*expr.condition).into())?;

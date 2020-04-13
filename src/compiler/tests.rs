@@ -512,18 +512,77 @@ fn test_functions_without_return_value() {
 
 #[test]
 fn test_function_calls() {
-    let cases = vec![(
-        "fn () { 24 }();",
-        vec![
-            24.into(),
-            concat_instructions(vec![make_constant(0), make_single(Opcode::ReturnValue)]).into(),
-        ],
-        vec![
-            make_constant(1),
-            make_single(Opcode::Call),
-            make_single(Opcode::Pop),
-        ],
-    )];
+    let cases = vec![
+        (
+            "fn () { 24 }();",
+            vec![
+                24.into(),
+                concat_instructions(vec![make_constant(0), make_single(Opcode::ReturnValue)])
+                    .into(),
+            ],
+            vec![
+                make_constant(1),
+                code::make(Opcode::Call, &[0]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
+        ),
+        (
+            "let oneArg = fn(a) { a };
+oneArg(24);",
+            vec![
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    1,
+                    1,
+                )
+                .into(),
+                24.into(),
+            ],
+            vec![
+                make_constant(0),
+                code::make(Opcode::SetGlobal, &[0]).unwrap(),
+                code::make(Opcode::GetGlobal, &[0]).unwrap(),
+                make_constant(1),
+                code::make(Opcode::Call, &[1]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
+        ),
+        (
+            "let manyArg = fn(a, b, c) { a; b; c };
+manyArg(24, 25, 26);",
+            vec![
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        make_single(Opcode::Pop),
+                        code::make(Opcode::GetLocal, &[1]).unwrap(),
+                        make_single(Opcode::Pop),
+                        code::make(Opcode::GetLocal, &[2]).unwrap(),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    3,
+                    3,
+                )
+                .into(),
+                24.into(),
+                25.into(),
+                26.into(),
+            ],
+            vec![
+                make_constant(0),
+                code::make(Opcode::SetGlobal, &[0]).unwrap(),
+                code::make(Opcode::GetGlobal, &[0]).unwrap(),
+                make_constant(1),
+                make_constant(2),
+                make_constant(3),
+                code::make(Opcode::Call, &[3]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
+        ),
+    ];
 
     run_compiler_tests(cases)
 }
@@ -564,6 +623,7 @@ fn() { num }",
                         make_single(Opcode::ReturnValue),
                     ]),
                     1,
+                    0,
                 )
                 .into(),
             ],
@@ -590,6 +650,7 @@ fn() { num }",
                         make_single(Opcode::ReturnValue),
                     ]),
                     2,
+                    0,
                 )
                 .into(),
             ],

@@ -82,7 +82,7 @@ impl Opcode {
             Self::SetGlobal => Some(&[2]),
             Self::GetLocal => Some(&[1]),
             Self::SetLocal => Some(&[1]),
-            Self::Call => NO_ARGS,
+            Self::Call => Some(&[1]),
             Self::ReturnValue => NO_ARGS,
             Self::Return => NO_ARGS,
             Self::Maximum => None,
