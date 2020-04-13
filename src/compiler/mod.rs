@@ -4,9 +4,10 @@ mod tests;
 
 use crate::ast::{Expression, Node, Operator, Statement};
 use crate::code::{self, BytecodeError, Instructions, Opcode};
-use crate::object::Object;
+use crate::object::{CompiledFunction, Object};
 use custom_error::custom_error;
 use std::convert::TryInto;
+use symbol::Scope;
 
 custom_error! {
     pub CompileError
@@ -96,7 +97,13 @@ impl Compiler {
                     self.compile(let_stmt.value.into())?;
 
                     let symbol = self.symbol_table.define(&let_stmt.name.value);
-                    self.emit(Opcode::SetGlobal, &[symbol.index]);
+                    self.emit(
+                        match symbol.scope {
+                            Scope::Global => Opcode::SetGlobal,
+                            Scope::Local => Opcode::SetLocal,
+                        },
+                        &[symbol.index],
+                    );
                 }
                 Statement::Return(ret_stmt) => {
                     self.compile(ret_stmt.return_value.into())?;
@@ -106,7 +113,13 @@ impl Compiler {
             Node::Expression(expr) => match expr {
                 Expression::Identifier(ident) => match self.symbol_table.resolve(&ident.value) {
                     Some(symbol) => {
-                        self.emit(Opcode::GetGlobal, &[symbol.index]);
+                        self.emit(
+                            match symbol.scope {
+                                Scope::Global => Opcode::GetGlobal,
+                                Scope::Local => Opcode::GetLocal,
+                            },
+                            &[symbol.index],
+                        );
                     }
                     None => {
                         return Err(CompileError::UndefinedIdentifier {
@@ -192,9 +205,11 @@ impl Compiler {
                     if !self.last_instruction_is(Opcode::ReturnValue) {
                         self.emit(Opcode::Return, &[]);
                     }
-
+                    let num_locals = self.symbol_table.num_definitions;
                     let instructions = self.leave_scope();
-                    let const_index = self.add_constant(instructions.into());
+
+                    let const_index =
+                        self.add_constant(CompiledFunction::new(instructions, num_locals).into());
                     self.emit(Opcode::Constant, &[const_index]);
                 }
                 Expression::Call(c) => {
@@ -309,11 +324,13 @@ impl Compiler {
     fn enter_scope(&mut self) {
         self.scopes.push(Default::default());
         self.scope_index += 1;
+        self.symbol_table = symbol::SymbolTable::enclosing(self.symbol_table.clone());
     }
 
     fn leave_scope(&mut self) -> Instructions {
         let scope = self.scopes.pop().unwrap();
         self.scope_index -= 1;
+        self.symbol_table = self.symbol_table.clone().unenclose();
         scope.instructions
     }
 

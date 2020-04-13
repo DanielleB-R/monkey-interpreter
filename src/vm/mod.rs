@@ -145,6 +145,19 @@ impl VM {
 
                     self.push(self.globals[pos as usize].clone())?
                 }
+                Opcode::SetLocal => {
+                    let local_index = self.get_u8_arg(ip) as usize;
+                    let frame = self.current_frame();
+                    let stack_index = (frame.base_pointer as usize) + local_index;
+                    self.stack[stack_index] = self.pop();
+                }
+                Opcode::GetLocal => {
+                    let local_index = self.get_u8_arg(ip) as usize;
+                    let frame = self.current_frame();
+                    let stack_index = (frame.base_pointer as usize) + local_index;
+
+                    self.push(self.stack[stack_index].clone())?;
+                }
                 Opcode::Array => {
                     let len = self.get_u16_arg(ip) as usize;
 
@@ -163,7 +176,8 @@ impl VM {
                     let top = self.stack[self.sp - 1].clone();
                     match top {
                         Object::CompiledFunction(cf) => {
-                            self.push_frame(cf.instructions.into());
+                            self.push_frame(Frame::new(cf.instructions, self.sp as isize));
+                            self.sp += cf.num_locals as usize;
                         }
                         _ => return Err(VMError::Uncallable),
                     }
@@ -171,13 +185,15 @@ impl VM {
                 Opcode::ReturnValue => {
                     let return_value = self.pop();
 
-                    self.pop_frame();
-                    self.pop();
+                    let frame = self.pop_frame();
+                    self.sp = (frame.base_pointer - 1) as usize;
+
                     self.push(return_value)?;
                 }
                 Opcode::Return => {
-                    self.pop_frame();
-                    self.pop();
+                    let frame = self.pop_frame();
+                    self.sp = (frame.base_pointer - 1) as usize;
+
                     self.push(Object::Null)?;
                 }
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
@@ -193,6 +209,13 @@ impl VM {
         let frame = self.current_frame();
         let arg = code::read_u16(&frame.instructions()[ip + 1..]);
         frame.ip += 2;
+        arg
+    }
+
+    fn get_u8_arg(&mut self, ip: usize) -> u8 {
+        let frame = self.current_frame();
+        let arg = frame.instructions()[ip + 1];
+        frame.ip += 1;
         arg
     }
 
@@ -565,12 +588,65 @@ noReturnTwo();",
 
     #[test]
     fn test_first_class_functions() {
-        let cases = vec![(
-            "let returnsOne = fn() { 1; };
+        let cases = vec![
+            (
+                "let returnsOne = fn() { 1; };
 let returnsOneReturner = fn() { returnsOne; };
 returnsOneReturner()();",
-            1.into(),
-        )];
+                1.into(),
+            ),
+            (
+                "let returnsOneReturner = fn() {
+               let returnsOne = fn() { 1; };
+               returnsOne;
+           };
+           returnsOneReturner()();",
+                1.into(),
+            ),
+        ];
+
+        run_vm_tests(cases)
+    }
+
+    #[test]
+    fn test_calling_functions_with_bindings() {
+        let cases = vec![
+            (
+                "let one = fn() { let one = 1; one };
+one();",
+                1.into(),
+            ),
+            (
+                "let oneAndTwo = fn() { let one = 1; let two = 2; one + two; };
+           oneAndTwo();",
+                3.into(),
+            ),
+            (
+                "let oneAndTwo = fn() { let one = 1; let two = 2; one + two; };
+           let threeAndFour = fn() { let three = 3; let four = 4; three + four; };
+           oneAndTwo() + threeAndFour();",
+                10.into(),
+            ),
+            (
+                "let firstFoobar = fn() { let foobar = 50; foobar; };
+           let secondFoobar = fn() { let foobar = 100; foobar; };
+           firstFoobar() + secondFoobar();",
+                150.into(),
+            ),
+            (
+                "let globalSeed = 50;
+           let minusOne = fn() {
+let num = 1;
+               globalSeed - num;
+           }
+           let minusTwo = fn() {
+               let num = 2;
+               globalSeed - num;
+           }
+           minusOne() + minusTwo();",
+                97.into(),
+            ),
+        ];
 
         run_vm_tests(cases)
     }

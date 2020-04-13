@@ -21,9 +21,9 @@ pub struct Symbol {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SymbolTable {
-    outer: Option<Box<SymbolTable>>,
+    pub outer: Option<Box<SymbolTable>>,
     store: HashMap<String, Symbol>,
-    num_definitions: isize,
+    pub num_definitions: isize,
 }
 
 impl SymbolTable {
@@ -33,6 +33,10 @@ impl SymbolTable {
             store: Default::default(),
             num_definitions: 0,
         })
+    }
+
+    pub fn unenclose(mut self) -> Box<Self> {
+        self.outer.take().unwrap()
     }
 
     pub fn define(&mut self, name: &str) -> Symbol {

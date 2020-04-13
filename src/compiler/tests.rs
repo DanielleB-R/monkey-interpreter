@@ -8,6 +8,7 @@ use crate::parser::Parser;
 fn test_compiler_scopes() {
     let mut compiler = Compiler::default();
     assert_eq!(compiler.scope_index, 0);
+    assert!(compiler.symbol_table.outer.is_none());
 
     compiler.emit(Opcode::Mul, &[]);
 
@@ -20,9 +21,11 @@ fn test_compiler_scopes() {
         compiler.scopes[compiler.scope_index].last.opcode,
         Opcode::Sub
     );
+    assert!(compiler.symbol_table.outer.is_some());
 
     compiler.leave_scope();
     assert_eq!(compiler.scope_index, 0);
+    assert!(compiler.symbol_table.outer.is_none());
     compiler.emit(Opcode::Add, &[]);
 
     assert_eq!(compiler.scopes[compiler.scope_index].instructions.len(), 2);
@@ -553,12 +556,15 @@ fn() { num }",
 }",
             vec![
                 55.into(),
-                concat_instructions(vec![
-                    make_constant(0),
-                    code::make(Opcode::SetLocal, &[0]).unwrap(),
-                    code::make(Opcode::GetLocal, &[0]).unwrap(),
-                    make_single(Opcode::ReturnValue),
-                ])
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        make_constant(0),
+                        code::make(Opcode::SetLocal, &[0]).unwrap(),
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    1,
+                )
                 .into(),
             ],
             vec![make_constant(1), make_single(Opcode::Pop)],
@@ -572,16 +578,19 @@ fn() { num }",
             vec![
                 55.into(),
                 77.into(),
-                concat_instructions(vec![
-                    make_constant(0),
-                    code::make(Opcode::SetLocal, &[0]).unwrap(),
-                    make_constant(1),
-                    code::make(Opcode::SetLocal, &[1]).unwrap(),
-                    code::make(Opcode::GetLocal, &[0]).unwrap(),
-                    code::make(Opcode::GetLocal, &[1]).unwrap(),
-                    make_single(Opcode::Add),
-                    make_single(Opcode::ReturnValue),
-                ])
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        make_constant(0),
+                        code::make(Opcode::SetLocal, &[0]).unwrap(),
+                        make_constant(1),
+                        code::make(Opcode::SetLocal, &[1]).unwrap(),
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        code::make(Opcode::GetLocal, &[1]).unwrap(),
+                        make_single(Opcode::Add),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    2,
+                )
                 .into(),
             ],
             vec![make_constant(2), make_single(Opcode::Pop)],

@@ -125,9 +125,19 @@ impl From<HashValue> for Object {
     }
 }
 
+impl From<CompiledFunction> for Object {
+    fn from(f: CompiledFunction) -> Self {
+        Self::CompiledFunction(f)
+    }
+}
+
 impl From<Instructions> for Object {
     fn from(i: Instructions) -> Self {
-        Self::CompiledFunction(CompiledFunction { instructions: i })
+        CompiledFunction {
+            instructions: i,
+            num_locals: 0,
+        }
+        .into()
     }
 }
 
@@ -192,11 +202,21 @@ impl Display for FunctionObject {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledFunction {
     pub instructions: Instructions,
+    pub num_locals: isize,
 }
 
 impl Display for CompiledFunction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "CompiledFunction[{}]", self.instructions)
+    }
+}
+
+impl CompiledFunction {
+    pub fn new(instructions: Instructions, num_locals: isize) -> Self {
+        Self {
+            instructions,
+            num_locals,
+        }
     }
 }
 
