@@ -525,6 +525,72 @@ fn test_function_calls() {
     run_compiler_tests(cases)
 }
 
+#[test]
+fn test_let_statement_scopes() {
+    let cases = vec![
+        (
+            "let num = 55;
+fn() { num }",
+            vec![
+                55.into(),
+                concat_instructions(vec![
+                    code::make(Opcode::GetGlobal, &[0]).unwrap(),
+                    make_single(Opcode::ReturnValue),
+                ])
+                .into(),
+            ],
+            vec![
+                make_constant(0),
+                code::make(Opcode::SetGlobal, &[0]).unwrap(),
+                make_constant(1),
+                make_single(Opcode::Pop),
+            ],
+        ),
+        (
+            "fn() {
+  let num = 55;
+  num
+}",
+            vec![
+                55.into(),
+                concat_instructions(vec![
+                    make_constant(0),
+                    code::make(Opcode::SetLocal, &[0]).unwrap(),
+                    code::make(Opcode::GetLocal, &[0]).unwrap(),
+                    make_single(Opcode::ReturnValue),
+                ])
+                .into(),
+            ],
+            vec![make_constant(1), make_single(Opcode::Pop)],
+        ),
+        (
+            "fn() {
+  let a = 55;
+  let b = 77;
+  a + b
+}",
+            vec![
+                55.into(),
+                77.into(),
+                concat_instructions(vec![
+                    make_constant(0),
+                    code::make(Opcode::SetLocal, &[0]).unwrap(),
+                    make_constant(1),
+                    code::make(Opcode::SetLocal, &[1]).unwrap(),
+                    code::make(Opcode::GetLocal, &[0]).unwrap(),
+                    code::make(Opcode::GetLocal, &[1]).unwrap(),
+                    make_single(Opcode::Add),
+                    make_single(Opcode::ReturnValue),
+                ])
+                .into(),
+            ],
+            vec![make_constant(2), make_single(Opcode::Pop)],
+        ),
+    ];
+
+    run_compiler_tests(cases)
+}
+
 fn run_compiler_tests(cases: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
     for (input, constants, instructions) in cases.into_iter() {
         let program = parse(input);
