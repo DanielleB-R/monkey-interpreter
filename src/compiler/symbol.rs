@@ -20,6 +20,7 @@ pub struct Symbol {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SymbolTable {
+    outer: Option<Box<SymbolTable>>,
     store: HashMap<String, Symbol>,
     num_definitions: isize,
 }

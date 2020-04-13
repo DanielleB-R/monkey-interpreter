@@ -33,7 +33,7 @@ pub struct CompilationScope {
 pub struct Compiler {
     constants: Vec<Object>,
 
-    symbol_table: symbol::SymbolTable,
+    symbol_table: Box<symbol::SymbolTable>,
 
     scopes: Vec<CompilationScope>,
     scope_index: usize,
@@ -53,7 +53,7 @@ impl Default for Compiler {
 #[derive(Default, Clone)]
 pub struct CompilerState {
     constants: Vec<Object>,
-    symbol_table: symbol::SymbolTable,
+    symbol_table: Box<symbol::SymbolTable>,
 }
 
 impl From<CompilerState> for Compiler {
