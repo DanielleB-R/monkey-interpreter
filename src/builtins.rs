@@ -109,10 +109,10 @@ fn puts(args: Vec<Object>) -> Result<Object> {
 lazy_static! {
     pub static ref BUILTINS: Vec<(String, Object)> = vec![
         ("len".to_owned(), Object::Builtin(len)),
+        ("puts".to_owned(), Object::Builtin(puts)),
         ("first".to_owned(), Object::Builtin(first)),
         ("last".to_owned(), Object::Builtin(last)),
         ("rest".to_owned(), Object::Builtin(rest)),
         ("push".to_owned(), Object::Builtin(push)),
-        ("puts".to_owned(), Object::Builtin(puts)),
     ];
 }

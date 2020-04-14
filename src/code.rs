@@ -36,6 +36,7 @@ pub enum Opcode {
 
     GetGlobal,
     SetGlobal,
+    GetBuiltin,
 
     GetLocal,
     SetLocal,
@@ -80,6 +81,7 @@ impl Opcode {
             Self::Jump => Some(&[2]),
             Self::GetGlobal => Some(&[2]),
             Self::SetGlobal => Some(&[2]),
+            Self::GetBuiltin => Some(&[1]),
             Self::GetLocal => Some(&[1]),
             Self::SetLocal => Some(&[1]),
             Self::Call => Some(&[1]),

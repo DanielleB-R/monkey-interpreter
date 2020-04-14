@@ -661,6 +661,45 @@ fn() { num }",
     run_compiler_tests(cases)
 }
 
+#[test]
+fn test_builtins() {
+    let cases = vec![
+        (
+            "len([]);
+push([], 1);",
+            vec![1.into()],
+            vec![
+                code::make(Opcode::GetBuiltin, &[0]).unwrap(),
+                code::make(Opcode::Array, &[0]).unwrap(),
+                code::make(Opcode::Call, &[1]).unwrap(),
+                make_single(Opcode::Pop),
+                code::make(Opcode::GetBuiltin, &[5]).unwrap(),
+                code::make(Opcode::Array, &[0]).unwrap(),
+                make_constant(0),
+                code::make(Opcode::Call, &[2]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
+        ),
+        (
+            "fn() { len([]) }",
+            vec![CompiledFunction::new(
+                concat_instructions(vec![
+                    code::make(Opcode::GetBuiltin, &[0]).unwrap(),
+                    code::make(Opcode::Array, &[0]).unwrap(),
+                    code::make(Opcode::Call, &[1]).unwrap(),
+                    make_single(Opcode::ReturnValue),
+                ]),
+                0,
+                0,
+            )
+            .into()],
+            vec![make_constant(0), make_single(Opcode::Pop)],
+        ),
+    ];
+
+    run_compiler_tests(cases)
+}
+
 fn run_compiler_tests(cases: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
     for (input, constants, instructions) in cases.into_iter() {
         let program = parse(input);

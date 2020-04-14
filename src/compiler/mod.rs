@@ -3,6 +3,7 @@ mod symbol;
 mod tests;
 
 use crate::ast::{Expression, Node, Operator, Statement};
+use crate::builtins::BUILTINS;
 use crate::code::{self, BytecodeError, Instructions, Opcode};
 use crate::object::{CompiledFunction, Object};
 use custom_error::custom_error;
@@ -42,9 +43,15 @@ pub struct Compiler {
 
 impl Default for Compiler {
     fn default() -> Self {
+        let mut symbol_table = Box::new(symbol::SymbolTable::default());
+
+        for (i, (name, _)) in BUILTINS.iter().enumerate() {
+            symbol_table.define_builtin(i as isize, name);
+        }
+
         Self {
             constants: Default::default(),
-            symbol_table: Default::default(),
+            symbol_table,
             scopes: vec![Default::default()],
             scope_index: 0,
         }
@@ -101,6 +108,7 @@ impl Compiler {
                         match symbol.scope {
                             Scope::Global => Opcode::SetGlobal,
                             Scope::Local => Opcode::SetLocal,
+                            Scope::Builtin => panic!(),
                         },
                         &[symbol.index],
                     );
@@ -113,13 +121,7 @@ impl Compiler {
             Node::Expression(expr) => match expr {
                 Expression::Identifier(ident) => match self.symbol_table.resolve(&ident.value) {
                     Some(symbol) => {
-                        self.emit(
-                            match symbol.scope {
-                                Scope::Global => Opcode::GetGlobal,
-                                Scope::Local => Opcode::GetLocal,
-                            },
-                            &[symbol.index],
-                        );
+                        self.emit(Self::load_symbol_instruction(symbol), &[symbol.index]);
                     }
                     None => {
                         return Err(CompileError::UndefinedIdentifier {
@@ -292,6 +294,14 @@ impl Compiler {
         let pos = instructions.len();
         instructions.append(ins);
         pos
+    }
+
+    fn load_symbol_instruction(symbol: symbol::Symbol) -> Opcode {
+        match symbol.scope {
+            Scope::Global => Opcode::GetGlobal,
+            Scope::Local => Opcode::GetLocal,
+            Scope::Builtin => Opcode::GetBuiltin,
+        }
     }
 
     fn set_last_instruction(&mut self, opcode: Opcode, position: usize) {
