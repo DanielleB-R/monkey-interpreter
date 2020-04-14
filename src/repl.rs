@@ -1,3 +1,4 @@
+use crate::builtins::BUILTINS;
 use crate::compiler::{Compiler, CompilerState};
 use crate::environment::Environment;
 use crate::evaluator;
@@ -38,6 +39,9 @@ pub fn start_interpreted() {
 
 pub fn start() {
     let mut compiler_state = CompilerState::default();
+    for (i, (name, _)) in BUILTINS.iter().enumerate() {
+        compiler_state.symbol_table.define_builtin(i as isize, name);
+    }
     let mut vm_state: Vec<Object> = vec![Object::Null; 65536];
     loop {
         print!("{}", PROMPT);

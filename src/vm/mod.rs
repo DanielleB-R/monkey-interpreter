@@ -2,9 +2,10 @@ mod frame;
 #[cfg(test)]
 mod test;
 
+use crate::builtins::BUILTINS;
 use crate::code::{self, Opcode};
 use crate::compiler;
-use crate::object::{EvalError, HashValue, Object};
+use crate::object::{Builtin, CompiledFunction, EvalError, HashValue, Object};
 use custom_error::custom_error;
 use frame::Frame;
 use std::convert::TryInto;
@@ -162,6 +163,12 @@ impl VM {
 
                     self.push(self.stack[stack_index].clone())?;
                 }
+                Opcode::GetBuiltin => {
+                    let index = self.get_u8_arg(ip) as usize;
+
+                    let builtin = BUILTINS[index].1.clone();
+                    self.push(builtin)?;
+                }
                 Opcode::Array => {
                     let len = self.get_u16_arg(ip) as usize;
 
@@ -179,7 +186,7 @@ impl VM {
                 Opcode::Call => {
                     let num_args = self.get_u8_arg(ip) as usize;
 
-                    self.call_function(num_args)?;
+                    self.execute_call(num_args)?;
                 }
                 Opcode::ReturnValue => {
                     let return_value = self.pop();
@@ -218,22 +225,31 @@ impl VM {
         arg
     }
 
-    fn call_function(&mut self, num_args: usize) -> Result<(), VMError> {
-        let top = self.stack[self.sp - 1 - num_args].clone();
-        match top {
-            Object::CompiledFunction(cf) => {
-                if num_args != cf.num_parameters {
-                    return Err(VMError::WrongArgumentCount {
-                        expected: cf.num_parameters,
-                        found: num_args,
-                    });
-                }
-                self.push_frame(Frame::new(cf.instructions, (self.sp - num_args) as isize));
-                self.sp += cf.num_locals as usize;
-            }
-            _ => return Err(VMError::Uncallable),
-        };
+    fn execute_call(&mut self, num_args: usize) -> Result<(), VMError> {
+        let callee = self.stack[self.sp - 1 - num_args].clone();
+        match callee {
+            Object::CompiledFunction(cf) => self.call_function(cf, num_args),
+            Object::Builtin(f) => self.call_builtin(f, num_args),
+            _ => Err(VMError::Uncallable),
+        }
+    }
+
+    fn call_function(&mut self, cf: CompiledFunction, num_args: usize) -> Result<(), VMError> {
+        if num_args != cf.num_parameters {
+            return Err(VMError::WrongArgumentCount {
+                expected: cf.num_parameters,
+                found: num_args,
+            });
+        }
+        self.push_frame(Frame::new(cf.instructions, (self.sp - num_args) as isize));
+        self.sp += cf.num_locals as usize;
         Ok(())
+    }
+
+    fn call_builtin(&mut self, f: Builtin, num_args: usize) -> Result<(), VMError> {
+        let args = self.stack[self.sp - num_args..self.sp].to_vec();
+
+        self.push(f(args)?)
     }
 
     fn execute_comparison(&mut self, op: Opcode) -> Result<(), VMError> {

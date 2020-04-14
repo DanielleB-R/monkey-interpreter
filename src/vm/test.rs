@@ -1,4 +1,3 @@
-
 use super::*;
 use crate::ast;
 use crate::compiler::Compiler;
@@ -360,15 +359,72 @@ fn test_calling_functions_with_wrong_arguments() {
         ),
     ];
 
-    for (input, err) in cases {
-        let program = parse(input);
+    run_vm_error_tests(cases);
+}
 
-        let mut comp = Compiler::default();
-        comp.compile(program.into()).unwrap();
+#[test]
+fn test_builtin_functions_success() {
+    let cases = vec![
+        ("len(\"\")", 0.into()),
+        ("len(\"four\")", 4.into()),
+        ("len(\"hello world\")", 11.into()),
+        ("len([1, 2, 3])", 3.into()),
+        ("len([])", 0.into()),
+        ("puts(\"hello\", \"world\")", Object::Null),
+        ("first([1, 2, 3])", 1.into()),
+        ("first([])", Object::Null),
+        ("last([1, 2, 3])", 3.into()),
+        ("last([])", Object::Null),
+        ("rest([1, 2, 3])", vec![2.into(), 3.into()].into()),
+        ("rest([])", Object::Null),
+        ("push([], 1)", vec![1.into()].into()),
+    ];
 
-        let mut vm = VM::new(comp.bytecode());
-        assert_eq!(vm.run().unwrap_err(), err);
-    }
+    run_vm_tests(cases)
+}
+
+#[test]
+fn test_builtin_function_errors() {
+    let cases = vec![
+        (
+            "len(1)",
+            EvalError::UnsupportedArgType {
+                fn_name: "len",
+                type_name: "INTEGER",
+            }
+            .into(),
+        ),
+        (
+            "len(\"one\", \"two\")",
+            EvalError::IncorrectArity { got: 2, want: 1 }.into(),
+        ),
+        (
+            "first(1)",
+            EvalError::UnsupportedArgType {
+                fn_name: "first",
+                type_name: "INTEGER",
+            }
+            .into(),
+        ),
+        (
+            "last(1)",
+            EvalError::UnsupportedArgType {
+                fn_name: "last",
+                type_name: "INTEGER",
+            }
+            .into(),
+        ),
+        (
+            "push(1, 1)",
+            EvalError::UnsupportedArgType {
+                fn_name: "push",
+                type_name: "INTEGER",
+            }
+            .into(),
+        ),
+    ];
+
+    run_vm_error_tests(cases);
 }
 
 fn parse(input: &str) -> ast::Program {
@@ -388,5 +444,17 @@ fn run_vm_tests(tests: Vec<(&str, Object)>) {
         vm.run().unwrap();
 
         assert_eq!(vm.last_popped_stack_element(), &output);
+    }
+}
+
+fn run_vm_error_tests(tests: Vec<(&str, VMError)>) {
+    for (input, err) in tests {
+        let program = parse(input);
+
+        let mut comp = Compiler::default();
+        comp.compile(program.into()).unwrap();
+
+        let mut vm = VM::new(comp.bytecode());
+        assert_eq!(vm.run().unwrap_err(), err);
     }
 }

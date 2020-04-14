@@ -61,7 +61,7 @@ impl Default for Compiler {
 #[derive(Default, Clone)]
 pub struct CompilerState {
     constants: Vec<Object>,
-    symbol_table: Box<symbol::SymbolTable>,
+    pub symbol_table: Box<symbol::SymbolTable>,
 }
 
 impl From<CompilerState> for Compiler {
