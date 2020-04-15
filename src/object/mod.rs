@@ -1,48 +1,15 @@
 use crate::ast;
 use crate::code::Instructions;
 use crate::environment::Environment;
-use custom_error::custom_error;
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::fmt::{self, Display, Formatter};
 use std::iter::FromIterator;
 
-custom_error! {
-    #[derive(Clone, PartialEq)]
-    pub EvalError
+mod eval_error;
+pub use eval_error::EvalError;
 
-    IdentifierNotFound{id: String} = "identifier not found: {id}",
-    UnknownPrefixOperator{operator: ast::Operator, operand: &'static str} = "unknown operator: {operator}{operand}",
-    UnknownInfixOperator{left: &'static str, operator: ast::Operator, right: &'static str} = "unknown operator: {left} {operator} {right}",
-    TypeMismatch{left: &'static str, operator: ast::Operator, right: &'static str} = "type mismatch: {left} {operator} {right}",
-    NotAFunction{type_name: &'static str} = "not a function: {type_name}",
-    UnsupportedArgType{fn_name: &'static str, type_name: &'static str} = "argument to `{fn_name}` not supported, got {type_name}",
-    IncorrectArity{got: usize, want: usize} = "wrong number of arguments. got={got}, want={want}",
-    NotIndexable{type_name: &'static str} = "index operator not supported: {type_name}",
-    NotHashable{type_name: &'static str} = "unusable as hash key: {type_name}",
-}
-
-impl EvalError {
-    pub fn binary_op_error(
-        left: &'static str,
-        operator: ast::Operator,
-        right: &'static str,
-    ) -> Self {
-        if left == right {
-            Self::UnknownInfixOperator {
-                left,
-                operator,
-                right,
-            }
-        } else {
-            Self::TypeMismatch {
-                left,
-                operator,
-                right,
-            }
-        }
-    }
-}
+mod hash;
+pub use hash::HashKey;
 
 pub type Result<T> = std::result::Result<T, EvalError>;
 
@@ -52,6 +19,7 @@ pub type Builtin = fn(Vec<Object>) -> Result<Object>;
 pub enum Object {
     Function(FunctionObject),
     CompiledFunction(CompiledFunction),
+    Closure(Closure),
     Builtin(Builtin),
     ReturnValue(Box<Object>),
     Integer(i64),
@@ -67,6 +35,7 @@ impl Display for Object {
         match self {
             Self::Function(func) => write!(f, "{}", func),
             Self::CompiledFunction(func) => write!(f, "{}", func),
+            Self::Closure(func) => write!(f, "{}", func),
             Self::Builtin(_) => write!(f, "builtin function"),
             Self::ReturnValue(obj) => write!(f, "{}", obj),
             Self::Integer(n) => write!(f, "{}", n),
@@ -161,6 +130,7 @@ impl Object {
         match self {
             Self::Function(_) => "FUNCTION",
             Self::CompiledFunction(_) => "COMPILED_FUNCTION",
+            Self::Closure(_) => "CLOSURE",
             Self::Builtin(_) => "BUILTIN",
             Self::ReturnValue(o) => o.type_name(),
             Self::Boolean(_) => "BOOLEAN",
@@ -222,60 +192,24 @@ impl CompiledFunction {
         }
     }
 }
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum HashKey {
-    String(String),
-    Integer(i64),
-    Boolean(bool),
+#[derive(Debug, Clone, PartialEq)]
+pub struct Closure {
+    pub func: CompiledFunction,
+    pub free: Vec<Object>,
 }
 
-impl Display for HashKey {
+impl From<CompiledFunction> for Closure {
+    fn from(func: CompiledFunction) -> Self {
+        Self {
+            func,
+            free: Default::default(),
+        }
+    }
+}
+
+impl Display for Closure {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Integer(n) => write!(f, "{}", n),
-            Self::Boolean(b) => write!(f, "{}", b),
-            Self::String(s) => write!(f, "{}", s),
-        }
-    }
-}
-
-impl From<i64> for HashKey {
-    fn from(n: i64) -> Self {
-        Self::Integer(n)
-    }
-}
-
-impl From<bool> for HashKey {
-    fn from(b: bool) -> Self {
-        Self::Boolean(b)
-    }
-}
-
-impl From<String> for HashKey {
-    fn from(s: String) -> Self {
-        Self::String(s)
-    }
-}
-
-impl From<&str> for HashKey {
-    fn from(s: &str) -> Self {
-        s.to_owned().into()
-    }
-}
-
-impl TryFrom<Object> for HashKey {
-    type Error = EvalError;
-
-    fn try_from(obj: Object) -> std::result::Result<Self, Self::Error> {
-        match obj {
-            Object::String(s) => Ok(Self::String(s)),
-            Object::Integer(s) => Ok(Self::Integer(s)),
-            Object::Boolean(s) => Ok(Self::Boolean(s)),
-            o => Err(EvalError::NotHashable {
-                type_name: o.type_name(),
-            }),
-        }
+        write!(f, "Closure[{}]", self.func)
     }
 }
 
