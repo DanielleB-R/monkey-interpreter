@@ -5,7 +5,7 @@ mod test;
 use crate::builtins::BUILTINS;
 use crate::code::{self, Opcode};
 use crate::compiler;
-use crate::object::{Builtin, CompiledFunction, EvalError, HashValue, Object};
+use crate::object::{Builtin, Closure, EvalError, HashValue, Object};
 use custom_error::custom_error;
 use frame::Frame;
 use std::convert::TryInto;
@@ -24,6 +24,7 @@ custom_error! {
     Unindexable{type_name: &'static str} = "index operator not supported: {type_name}",
     Uncallable = "calling non-function",
     WrongArgumentCount{expected: usize, found: usize} = "wrong number of arguments: want={expected}, got={found}",
+    NotAFunction = "not a function",
 }
 
 pub static STACK_SIZE: usize = 2048;
@@ -188,6 +189,12 @@ impl VM {
 
                     self.execute_call(num_args)?;
                 }
+                Opcode::Closure => {
+                    let const_index = self.get_u16_arg(ip) as usize;
+                    let _ = self.get_u8_arg(ip + 2);
+
+                    self.push_closure(const_index)?;
+                }
                 Opcode::ReturnValue => {
                     let return_value = self.pop();
 
@@ -228,21 +235,22 @@ impl VM {
     fn execute_call(&mut self, num_args: usize) -> Result<(), VMError> {
         let callee = self.stack[self.sp - 1 - num_args].clone();
         match callee {
-            Object::CompiledFunction(cf) => self.call_function(cf, num_args),
+            Object::Closure(c) => self.call_closure(c, num_args),
             Object::Builtin(f) => self.call_builtin(f, num_args),
             _ => Err(VMError::Uncallable),
         }
     }
 
-    fn call_function(&mut self, cf: CompiledFunction, num_args: usize) -> Result<(), VMError> {
-        if num_args != cf.num_parameters {
+    fn call_closure(&mut self, cf: Closure, num_args: usize) -> Result<(), VMError> {
+        if num_args != cf.func.num_parameters {
             return Err(VMError::WrongArgumentCount {
-                expected: cf.num_parameters,
+                expected: cf.func.num_parameters,
                 found: num_args,
             });
         }
-        self.push_frame(Frame::new(cf.instructions, (self.sp - num_args) as isize));
-        self.sp += cf.num_locals as usize;
+        let num_locals = cf.func.num_locals as usize;
+        self.push_frame(Frame::new(cf, (self.sp - num_args) as isize));
+        self.sp += num_locals;
         Ok(())
     }
 
@@ -250,6 +258,15 @@ impl VM {
         let args = self.stack[self.sp - num_args..self.sp].to_vec();
 
         self.push(f(args)?)
+    }
+
+    fn push_closure(&mut self, const_index: usize) -> Result<(), VMError> {
+        let constant = &self.constants[const_index];
+        let closure = match constant {
+            Object::CompiledFunction(cf) => Object::Closure(cf.clone().into()),
+            _ => return Err(VMError::NotAFunction),
+        };
+        self.push(closure)
     }
 
     fn execute_comparison(&mut self, op: Opcode) -> Result<(), VMError> {

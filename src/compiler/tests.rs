@@ -462,7 +462,10 @@ fn test_functions() {
                 ])
                 .into(),
             ],
-            vec![make_constant(2), make_single(Opcode::Pop)],
+            vec![
+                code::make(Opcode::Closure, &[2, 0]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
         ),
         (
             "fn() { 5 + 10; }",
@@ -477,7 +480,10 @@ fn test_functions() {
                 ])
                 .into(),
             ],
-            vec![make_constant(2), make_single(Opcode::Pop)],
+            vec![
+                code::make(Opcode::Closure, &[2, 0]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
         ),
         (
             "fn() { 1; 2 }",
@@ -492,7 +498,10 @@ fn test_functions() {
                 ])
                 .into(),
             ],
-            vec![make_constant(2), make_single(Opcode::Pop)],
+            vec![
+                code::make(Opcode::Closure, &[2, 0]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
         ),
     ];
 
@@ -504,7 +513,10 @@ fn test_functions_without_return_value() {
     let cases = vec![(
         "fn() { }",
         vec![make_single(Opcode::Return).into()],
-        vec![make_constant(0), make_single(Opcode::Pop)],
+        vec![
+            code::make(Opcode::Closure, &[0, 0]).unwrap(),
+            make_single(Opcode::Pop),
+        ],
     )];
 
     run_compiler_tests(cases);
@@ -521,7 +533,7 @@ fn test_function_calls() {
                     .into(),
             ],
             vec![
-                make_constant(1),
+                code::make(Opcode::Closure, &[1, 0]).unwrap(),
                 code::make(Opcode::Call, &[0]).unwrap(),
                 make_single(Opcode::Pop),
             ],
@@ -542,7 +554,7 @@ oneArg(24);",
                 24.into(),
             ],
             vec![
-                make_constant(0),
+                code::make(Opcode::Closure, &[0, 0]).unwrap(),
                 code::make(Opcode::SetGlobal, &[0]).unwrap(),
                 code::make(Opcode::GetGlobal, &[0]).unwrap(),
                 make_constant(1),
@@ -572,7 +584,7 @@ manyArg(24, 25, 26);",
                 26.into(),
             ],
             vec![
-                make_constant(0),
+                code::make(Opcode::Closure, &[0, 0]).unwrap(),
                 code::make(Opcode::SetGlobal, &[0]).unwrap(),
                 code::make(Opcode::GetGlobal, &[0]).unwrap(),
                 make_constant(1),
@@ -604,7 +616,7 @@ fn() { num }",
             vec![
                 make_constant(0),
                 code::make(Opcode::SetGlobal, &[0]).unwrap(),
-                make_constant(1),
+                code::make(Opcode::Closure, &[1, 0]).unwrap(),
                 make_single(Opcode::Pop),
             ],
         ),
@@ -627,7 +639,10 @@ fn() { num }",
                 )
                 .into(),
             ],
-            vec![make_constant(1), make_single(Opcode::Pop)],
+            vec![
+                code::make(Opcode::Closure, &[1, 0]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
         ),
         (
             "fn() {
@@ -654,7 +669,10 @@ fn() { num }",
                 )
                 .into(),
             ],
-            vec![make_constant(2), make_single(Opcode::Pop)],
+            vec![
+                code::make(Opcode::Closure, &[2, 0]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
         ),
     ];
 
@@ -693,7 +711,10 @@ push([], 1);",
                 0,
             )
             .into()],
-            vec![make_constant(0), make_single(Opcode::Pop)],
+            vec![
+                code::make(Opcode::Closure, &[0, 0]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
         ),
     ];
 

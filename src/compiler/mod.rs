@@ -219,7 +219,7 @@ impl Compiler {
                     let const_index = self.add_constant(
                         CompiledFunction::new(instructions, num_locals, num_params).into(),
                     );
-                    self.emit(Opcode::Constant, &[const_index]);
+                    self.emit(Opcode::Closure, &[const_index, 0]);
                 }
                 Expression::Call(c) => {
                     self.compile((*c.function).into())?;

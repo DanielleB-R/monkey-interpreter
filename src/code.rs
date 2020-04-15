@@ -18,6 +18,7 @@ pub enum Opcode {
     Null,
     Array,
     Hash,
+    Closure,
 
     Add,
     Sub,
@@ -63,6 +64,7 @@ impl Opcode {
             Self::Constant => Some(&[2]),
             Self::Array => Some(&[2]),
             Self::Hash => Some(&[2]),
+            Self::Closure => Some(&[2, 1]),
             Self::Add => NO_ARGS,
             Self::Sub => NO_ARGS,
             Self::Mul => NO_ARGS,
@@ -174,6 +176,7 @@ impl Instructions {
             match operand_count {
                 0 => format!("{}", op),
                 1 => format!("{} {}", op, operands[0]),
+                2 => format!("{} {} {}", op, operands[0], operands[1]),
                 n => format!("ERROR unhandled operand count {}\n", n),
             }
         } else {
@@ -267,6 +270,11 @@ mod test {
                 vec![255],
                 vec![Opcode::GetLocal as u8, 255],
             ),
+            (
+                Opcode::Closure,
+                vec![65534, 255],
+                vec![Opcode::Closure as u8, 255, 254, 255],
+            ),
         ];
 
         for (opcode, operands, result) in cases.into_iter() {
@@ -287,12 +295,14 @@ mod test {
             make(Opcode::GetLocal, &[1]).unwrap(),
             make(Opcode::Constant, &[2]).unwrap(),
             make(Opcode::Constant, &[65535]).unwrap(),
+            make(Opcode::Closure, &[65535, 255]).unwrap(),
         ];
 
         let expected = "0000 Add
 0001 GetLocal 1
 0003 Constant 2
 0006 Constant 65535
+0009 Closure 65535 255
 ";
 
         assert_eq!(concat_instructions(insts).to_string(), expected);
@@ -301,12 +311,13 @@ mod test {
     #[test]
     fn test_read_operands() {
         let cases = vec![
-            (Opcode::Constant, &[65535], 2),
-            (Opcode::GetLocal, &[255], 1),
+            (Opcode::Constant, vec![65535], 2),
+            (Opcode::GetLocal, vec![255], 1),
+            (Opcode::Closure, vec![65535, 255], 3),
         ];
 
         for (op, operands, bytes_read) in cases {
-            let instruction = make(op, operands).unwrap();
+            let instruction = make(op, &operands).unwrap();
 
             let (operands_read, n) = read_operands(op, &instruction.0[1..]);
             assert_eq!(n, bytes_read);
