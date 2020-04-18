@@ -39,13 +39,6 @@ impl Display for Expression {
 
 #[cfg(test)]
 impl Expression {
-    pub fn pull_prefix(&self) -> &PrefixExpression {
-        match self {
-            Self::Prefix(expr) => expr,
-            _ => panic!("expected prefix expression"),
-        }
-    }
-
     pub fn pull_infix(&self) -> &InfixExpression {
         match self {
             Self::Infix(expr) => expr,
@@ -271,6 +264,12 @@ impl Display for ArrayLiteral {
         let argument_names: Vec<String> = self.elements.iter().map(Expression::to_string).collect();
 
         write!(f, "[{}]", argument_names.join(", "))
+    }
+}
+
+impl From<Vec<Expression>> for ArrayLiteral {
+    fn from(elements: Vec<Expression>) -> Self {
+        Self { elements }
     }
 }
 

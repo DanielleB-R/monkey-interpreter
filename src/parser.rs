@@ -487,10 +487,10 @@ return foobar;
             .parse_program()
             .expect("Parse errors found");
 
-        assert_eq!(program.statements.len(), 1);
-
-        let stmt = program.statements[0].pull_expr();
-        assert_eq!(stmt.expression, Expression::Identifier("foobar".into()))
+        assert_eq!(
+            program.statements,
+            vec![Expression::Identifier("foobar".into()).into()]
+        )
     }
 
     #[test]
@@ -501,39 +501,50 @@ return foobar;
             .parse_program()
             .expect("Parse errors found");
 
-        assert_eq!(program.statements.len(), 1);
-
-        let stmt = program.statements[0].pull_expr();
-        assert_eq!(stmt.expression, Expression::IntegerLiteral(5));
+        assert_eq!(
+            program.statements,
+            vec![Expression::IntegerLiteral(5).into()]
+        );
     }
 
     #[test]
     fn test_parsing_prefix_expressions() {
-        let cases = [
-            ("!5;", Operator::Bang, Expected::Int(5)),
-            ("-15;", Operator::Minus, Expected::Int(15)),
-            ("!foobar;", Operator::Bang, Expected::Ident("foobar")),
-            ("-foobar;", Operator::Minus, Expected::Ident("foobar")),
-            ("!true;", Operator::Bang, Expected::Bool(true)),
-            ("!false;", Operator::Bang, Expected::Bool(false)),
+        let cases = vec![
+            ("!5;", Operator::Bang, Expression::IntegerLiteral(5)),
+            ("-15;", Operator::Minus, Expression::IntegerLiteral(15)),
+            (
+                "!foobar;",
+                Operator::Bang,
+                Expression::Identifier("foobar".into()),
+            ),
+            (
+                "-foobar;",
+                Operator::Minus,
+                Expression::Identifier("foobar".into()),
+            ),
+            ("!true;", Operator::Bang, Expression::Boolean(true.into())),
+            ("!false;", Operator::Bang, Expression::Boolean(false.into())),
         ];
 
-        for (input, operator, value) in cases.iter() {
-            let program = Parser::new(Lexer::new((*input).to_owned()))
+        for (input, operator, value) in cases {
+            let program = Parser::new(Lexer::new(input.to_owned()))
                 .parse_program()
                 .expect("Parse errors found");
 
-            assert_eq!(program.statements.len(), 1);
-
-            let exp = program.statements[0].pull_expr().expression.pull_prefix();
-            assert_eq!(exp.operator, *operator);
-            value.test(&exp.right);
+            assert_eq!(
+                program.statements,
+                vec![Expression::Prefix(ast::PrefixExpression {
+                    operator,
+                    right: Box::new(value),
+                })
+                .into()]
+            );
         }
     }
 
     #[test]
     fn test_parsing_infix_expressions() {
-        let cases = [
+        let cases = vec![
             ("5 + 5;", Expected::Int(5), Operator::Plus, Expected::Int(5)),
             (
                 "5 - 5;",
@@ -630,21 +641,21 @@ return foobar;
             ),
         ];
 
-        for (input, left, op, right) in cases.iter() {
-            let program = Parser::new(Lexer::new((*input).to_owned()))
+        for (input, left, op, right) in cases {
+            let program = Parser::new(Lexer::new(input.to_owned()))
                 .parse_program()
                 .expect("Parse errors found");
 
             assert_eq!(program.statements.len(), 1);
 
             let stmt = program.statements[0].pull_expr();
-            test_infix_expression(&stmt.expression, left, *op, right);
+            test_infix_expression(&stmt.expression, &left, op, &right);
         }
     }
 
     #[test]
     fn test_operator_precedence_parsing() {
-        let cases = [
+        let cases = vec![
             ("-a * b", "((-a) * b)"),
             ("!-a", "(!(-a))"),
             ("a + b + c", "((a + b) + c)"),
@@ -688,31 +699,28 @@ return foobar;
             ),
         ];
 
-        for (input, output) in cases.iter() {
-            let program = Parser::new(Lexer::new((*input).to_owned()))
+        for (input, output) in cases {
+            let program = Parser::new(Lexer::new(input.to_owned()))
                 .parse_program()
                 .expect("Parse errors found");
 
-            assert_eq!(format!("{}", program), *output);
+            assert_eq!(format!("{}", program), output);
         }
     }
 
     #[test]
     fn test_boolean_expression() {
-        let cases = [
-            ("true;", Expected::Bool(true)),
-            ("false;", Expected::Bool(false)),
+        let cases = vec![
+            ("true;", Expression::Boolean(true.into())),
+            ("false;", Expression::Boolean(false.into())),
         ];
 
-        for (input, expected) in cases.iter() {
-            let program = Parser::new(Lexer::new((*input).to_owned()))
+        for (input, expected) in cases {
+            let program = Parser::new(Lexer::new(input.to_owned()))
                 .parse_program()
                 .expect("Parse errors found");
 
-            assert_eq!(program.statements.len(), 1);
-
-            let stmt = program.statements[0].pull_expr();
-            expected.test(&stmt.expression);
+            assert_eq!(program.statements, vec![expected.into()]);
         }
     }
 
@@ -762,9 +770,10 @@ return foobar;
             &Expected::Ident("y"),
         );
 
-        assert_eq!(expr.consequence.statements.len(), 1);
-        let stmt = expr.consequence.statements[0].pull_expr();
-        assert_eq!(stmt.expression, Expression::Identifier("x".into()));
+        assert_eq!(
+            expr.consequence.statements,
+            vec![Expression::Identifier("x".into()).into()]
+        );
         assert!(expr.alternative.is_none());
     }
 
@@ -785,18 +794,17 @@ return foobar;
             &Expected::Ident("y"),
         );
 
-        assert_eq!(expr.consequence.statements.len(), 1);
-        let stmt = expr.consequence.statements[0].pull_expr();
-        assert_eq!(stmt.expression, Expression::Identifier("x".into()));
+        assert_eq!(
+            expr.consequence.statements,
+            vec![Expression::Identifier("x".into()).into()]
+        );
 
-        match &expr.alternative {
-            Some(ast::BlockStatement { statements, .. }) => {
-                assert_eq!(statements.len(), 1);
-                let stmt = statements[0].pull_expr();
-                assert_eq!(stmt.expression, Expression::Identifier("y".into()));
-            }
-            _ => panic!(),
-        }
+        assert_eq!(
+            expr.alternative,
+            Some(ast::BlockStatement {
+                statements: vec![Expression::Identifier("y".into()).into()]
+            })
+        );
     }
 
     #[test]
@@ -811,15 +819,12 @@ return foobar;
 
         let expr = program.statements[0].pull_expr().expression.pull_function();
 
-        assert_eq!(expr.parameters.len(), 2);
-        assert_eq!(expr.parameters[0].value, "x");
-        assert_eq!(expr.parameters[1].value, "y");
+        assert_eq!(expr.parameters, vec!["x".into(), "y".into()]);
 
         assert_eq!(expr.body.statements.len(), 1);
 
-        let body_stmt = expr.body.statements[0].pull_expr();
         test_infix_expression(
-            &body_stmt.expression,
+            &expr.body.statements[0].pull_expr().expression,
             &Expected::Ident("x"),
             Operator::Plus,
             &Expected::Ident("y"),
@@ -828,23 +833,25 @@ return foobar;
 
     #[test]
     fn test_function_parameter_parsing() {
-        let cases = [
+        let cases = vec![
             ("fn() {};", vec![]),
-            ("fn(x) {};", vec!["x"]),
-            ("fn(x, y, z) {}", vec!["x", "y", "z"]),
+            ("fn(x) {};", vec!["x".into()]),
+            ("fn(x, y, z) {}", vec!["x".into(), "y".into(), "z".into()]),
         ];
 
-        for (input, params) in cases.iter() {
-            let program = Parser::new(Lexer::new((*input).to_owned()))
+        for (input, params) in cases {
+            let program = Parser::new(Lexer::new(input.to_owned()))
                 .parse_program()
                 .expect("Parse errors found");
 
-            let function = program.statements[0].pull_expr().expression.pull_function();
-            assert_eq!(function.parameters.len(), params.len());
-
-            for (actual, expected) in function.parameters.iter().zip(params.iter()) {
-                assert_eq!(&actual.value, expected);
-            }
+            assert_eq!(
+                program.statements[0]
+                    .pull_expr()
+                    .expression
+                    .pull_function()
+                    .parameters,
+                params
+            );
         }
     }
 
@@ -888,8 +895,8 @@ return foobar;
             .expect("Parse errors found");
 
         assert_eq!(
-            program.statements[0].pull_expr().expression,
-            Expression::String("hello world".to_owned())
+            program.statements,
+            vec![Expression::String("hello world".to_owned()).into()]
         );
     }
 
@@ -928,9 +935,10 @@ return foobar;
             .parse_program()
             .expect("Parse errors found");
 
-        assert_eq!(program.statements.len(), 1);
-        let array = program.statements[0].pull_expr().expression.pull_array();
-        assert_eq!(array.elements.len(), 0);
+        assert_eq!(
+            program.statements,
+            vec![Expression::Array(vec![].into()).into()]
+        );
     }
 
     #[test]
@@ -962,8 +970,8 @@ return foobar;
             .expect("Parse errors found");
 
         assert_eq!(
-            program.statements[0].pull_expr().expression,
-            Expression::Hash(
+            program.statements,
+            vec![Expression::Hash(
                 vec![
                     (
                         Expression::String("one".to_owned()),
@@ -980,6 +988,7 @@ return foobar;
                 ]
                 .into()
             )
+            .into()]
         );
     }
 
@@ -992,8 +1001,8 @@ return foobar;
             .expect("Parse errors found");
 
         assert_eq!(
-            program.statements[0].pull_expr().expression,
-            Expression::Hash(vec![].into())
+            program.statements,
+            vec![Expression::Hash(vec![].into()).into()]
         );
     }
 }

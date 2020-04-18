@@ -38,6 +38,12 @@ impl From<ExpressionStatement> for Statement {
     }
 }
 
+impl From<Expression> for Statement {
+    fn from(expression: Expression) -> Self {
+        ExpressionStatement { expression }.into()
+    }
+}
+
 #[cfg(test)]
 impl Statement {
     pub fn pull_let(&self) -> &LetStatement {
@@ -85,8 +91,6 @@ impl Display for ReturnStatement {
     }
 }
 
-// ExpressionStatement, being just an Expression, does not have a
-// token associated with it
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExpressionStatement {
     pub expression: Expression,
