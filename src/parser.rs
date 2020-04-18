@@ -212,7 +212,7 @@ impl Parser {
             .parse()
             .map_err(|_| ParseError::InvalidInteger { literal: contents })?;
 
-        Ok(Expression::IntegerLiteral(ast::IntegerLiteral { value }))
+        Ok(Expression::IntegerLiteral(value))
     }
 
     fn parse_boolean(&self, token: Token) -> Result<Expression, ParseError> {
@@ -533,8 +533,7 @@ return foobar;
     }
 
     fn test_integer_literal(expr: &Expression, value: i64) {
-        let literal = expr.pull_integer();
-        assert_eq!(literal.value, value);
+        assert_eq!(expr, &Expression::IntegerLiteral(value));
     }
 
     #[test]
@@ -977,15 +976,26 @@ return foobar;
             .parse_program()
             .expect("Parse errors found");
 
-        let hash = program.statements[0].pull_expr().expression.pull_hash();
-
-        assert_eq!(hash.pairs.len(), 3);
-        assert_eq!(hash.pairs[0].0, Expression::String("one".to_owned()));
-        assert_eq!(hash.pairs[0].1.pull_integer().value, 1);
-        assert_eq!(hash.pairs[1].0, Expression::String("two".to_owned()));
-        assert_eq!(hash.pairs[1].1.pull_integer().value, 2);
-        assert_eq!(hash.pairs[2].0, Expression::String("three".to_owned()));
-        assert_eq!(hash.pairs[2].1.pull_integer().value, 3);
+        assert_eq!(
+            program.statements[0].pull_expr().expression,
+            Expression::Hash(
+                vec![
+                    (
+                        Expression::String("one".to_owned()),
+                        Expression::IntegerLiteral(1)
+                    ),
+                    (
+                        Expression::String("two".to_owned()),
+                        Expression::IntegerLiteral(2)
+                    ),
+                    (
+                        Expression::String("three".to_owned()),
+                        Expression::IntegerLiteral(3)
+                    )
+                ]
+                .into()
+            )
+        );
     }
 
     #[test]

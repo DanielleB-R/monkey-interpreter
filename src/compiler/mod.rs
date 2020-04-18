@@ -166,7 +166,7 @@ impl Compiler {
                     self.emit(Opcode::Index, &[]);
                 }
                 Expression::IntegerLiteral(int) => {
-                    let constant = self.add_constant(int.value.into());
+                    let constant = self.add_constant(int.into());
                     self.emit(Opcode::Constant, &[constant]);
                 }
                 Expression::String(s) => {

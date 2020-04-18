@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Identifier(Identifier),
-    IntegerLiteral(IntegerLiteral),
+    IntegerLiteral(i64),
     Boolean(Boolean),
     Prefix(PrefixExpression),
     Infix(InfixExpression),
@@ -43,13 +43,6 @@ impl Expression {
         match self {
             Self::Prefix(expr) => expr,
             _ => panic!("expected prefix expression"),
-        }
-    }
-
-    pub fn pull_integer(&self) -> &IntegerLiteral {
-        match self {
-            Self::IntegerLiteral(expr) => expr,
-            _ => panic!("expected integer expression"),
         }
     }
 
@@ -104,12 +97,6 @@ impl Expression {
         match self {
             Self::Array(expr) => expr,
             _ => panic!("expected array expression"),
-        }
-    }
-    pub fn pull_hash(&self) -> &HashLiteral {
-        match self {
-            Self::Hash(expr) => expr,
-            _ => panic!("expected hash expression"),
         }
     }
 }
@@ -184,17 +171,6 @@ impl From<&Token> for Operator {
 impl From<Token> for Operator {
     fn from(input: Token) -> Self {
         (&input).into()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct IntegerLiteral {
-    pub value: i64,
-}
-
-impl Display for IntegerLiteral {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.value)
     }
 }
 
