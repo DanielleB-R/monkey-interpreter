@@ -192,14 +192,13 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
-        let mut left = match self.prefix_parse_fns.get(&self.cur_token_type()) {
-            Some(prefix) => prefix(self)?,
-            None => {
-                return Err(ParseError::MissingPrefixParseFunction {
-                    token_type: self.cur_token_type(),
-                });
-            }
-        };
+        let prefix = self
+            .prefix_parse_fns
+            .get(&self.cur_token_type())
+            .ok_or_else(|| ParseError::MissingPrefixParseFunction {
+                token_type: self.cur_token_type(),
+            })?;
+        let mut left = prefix(self)?;
 
         while !self.peek_token().is(TokenType::Semicolon) && precedence < self.peek_token().into() {
             let token_type: TokenType = self.peek_token().into();
@@ -221,14 +220,12 @@ impl Parser {
     fn parse_integer_literal(&mut self) -> Result<Expression, ParseError> {
         let token = self.take_token();
 
-        let value: i64 = match token.literal().parse::<i64>() {
-            Ok(v) => v,
-            Err(_) => {
-                return Err(ParseError::InvalidInteger {
-                    literal: token.literal().to_owned(),
-                })
-            }
-        };
+        let value = token
+            .literal()
+            .parse()
+            .map_err(|_| ParseError::InvalidInteger {
+                literal: token.literal().to_owned(),
+            })?;
 
         Ok(Expression::IntegerLiteral(ast::IntegerLiteral {
             token,
@@ -242,42 +239,36 @@ impl Parser {
 
     fn expect_peek(&mut self, expected: TokenType) -> Result<(), ParseError> {
         let peek_token = self.peek_token();
-        if peek_token.is(expected) {
-            self.next_token();
-            Ok(())
-        } else {
-            Err(ParseError::WrongNextToken {
+        if !peek_token.is(expected) {
+            return Err(ParseError::WrongNextToken {
                 expected,
                 actual: peek_token.into(),
-            })
+            });
         }
+        self.next_token();
+        Ok(())
     }
 
     fn parse_prefix_expression(&mut self) -> Result<Expression, ParseError> {
         let token = self.advance_token();
-        let operator = Operator::from(&token);
-
-        let right = Box::new(self.parse_expression(Precedence::Prefix)?);
+        let right = self.parse_expression(Precedence::Prefix)?;
 
         Ok(Expression::Prefix(ast::PrefixExpression {
+            operator: (&token).into(),
             token,
-            operator,
-            right,
+            right: Box::new(right),
         }))
     }
 
     fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression, ParseError> {
         let token = self.advance_token();
-        let operator = Operator::from(&token);
-
-        let precedence = (&token).into();
-        let right = Box::new(self.parse_expression(precedence)?);
+        let right = self.parse_expression((&token).into())?;
 
         Ok(Expression::Infix(ast::InfixExpression {
+            operator: (&token).into(),
             token,
             left: Box::new(left),
-            operator,
-            right,
+            right: Box::new(right),
         }))
     }
 
@@ -296,7 +287,7 @@ impl Parser {
         self.expect_peek(TokenType::LParen)?;
 
         self.next_token();
-        let condition = Box::new(self.parse_expression(Precedence::Lowest)?);
+        let condition = self.parse_expression(Precedence::Lowest)?;
 
         self.expect_peek(TokenType::RParen)?;
         self.expect_peek(TokenType::LBrace)?;
@@ -315,7 +306,7 @@ impl Parser {
 
         Ok(Expression::If(ast::IfExpression {
             token,
-            condition,
+            condition: Box::new(condition),
             consequence,
             alternative,
         }))
@@ -369,6 +360,7 @@ impl Parser {
         while self.peek_token().is(TokenType::Comma) {
             self.next_token();
             self.next_token();
+            // TODO this panics on certain badly-formed input e.g. "fn (a,)"
             identifiers.push(self.take_token().into());
         }
 
