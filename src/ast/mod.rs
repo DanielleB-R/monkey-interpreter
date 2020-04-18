@@ -47,7 +47,6 @@ impl Display for Program {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Identifier {
-    pub token: Token,
     pub value: String,
 }
 
@@ -60,7 +59,13 @@ impl Display for Identifier {
 impl From<Token> for Identifier {
     fn from(token: Token) -> Self {
         let value = token.literal().to_owned();
-        Self { token, value }
+        Self { value }
+    }
+}
+
+impl From<String> for Identifier {
+    fn from(value: String) -> Self {
+        Self { value }
     }
 }
 
@@ -75,7 +80,6 @@ mod test {
                 token: Token::Let,
                 name: Token::Ident("myVar".to_owned()).into(),
                 value: Expression::Identifier(Identifier {
-                    token: Token::Ident("anotherVar".to_owned()),
                     value: "anotherVar".to_owned(),
                 }),
             })],

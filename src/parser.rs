@@ -173,14 +173,14 @@ impl Parser {
 
     fn parse_prefix(&mut self) -> Result<Expression, ParseError> {
         match self.take_token() {
-            token @ Token::Ident(_) => self.parse_identifier(token),
-            token @ Token::Int(_) => self.parse_integer_literal(token),
+            Token::Ident(name) => self.parse_identifier(name),
+            Token::Int(contents) => self.parse_integer_literal(contents),
             token @ Token::Bang | token @ Token::Minus => self.parse_prefix_expression(token),
             token @ Token::True | token @ Token::False => self.parse_boolean(token),
             Token::LParen => self.parse_grouped_expression(),
             Token::If => self.parse_if_expression(),
             Token::Function => self.parse_function_literal(),
-            token @ Token::String(_) => self.parse_string_literal(token),
+            Token::String(literal) => self.parse_string_literal(literal),
             Token::LBracket => self.parse_array_literal(),
             Token::LBrace => self.parse_hash_literal(),
             token => {
@@ -208,22 +208,16 @@ impl Parser {
         }
     }
 
-    fn parse_identifier(&self, token: Token) -> Result<Expression, ParseError> {
-        Ok(Expression::Identifier(token.into()))
+    fn parse_identifier(&self, name: String) -> Result<Expression, ParseError> {
+        Ok(Expression::Identifier(name.into()))
     }
 
-    fn parse_integer_literal(&self, token: Token) -> Result<Expression, ParseError> {
-        let value = token
-            .literal()
+    fn parse_integer_literal(&self, contents: String) -> Result<Expression, ParseError> {
+        let value = contents
             .parse()
-            .map_err(|_| ParseError::InvalidInteger {
-                literal: token.literal().to_owned(),
-            })?;
+            .map_err(|_| ParseError::InvalidInteger { literal: contents })?;
 
-        Ok(Expression::IntegerLiteral(ast::IntegerLiteral {
-            token,
-            value,
-        }))
+        Ok(Expression::IntegerLiteral(ast::IntegerLiteral { value }))
     }
 
     fn parse_boolean(&self, token: Token) -> Result<Expression, ParseError> {
@@ -388,8 +382,8 @@ impl Parser {
         Ok(list)
     }
 
-    fn parse_string_literal(&self, token: Token) -> Result<Expression, ParseError> {
-        Ok(Expression::String(token.into()))
+    fn parse_string_literal(&self, literal: String) -> Result<Expression, ParseError> {
+        Ok(Expression::String(literal.into()))
     }
 
     fn parse_array_literal(&mut self) -> Result<Expression, ParseError> {
@@ -472,7 +466,6 @@ let foobar = y;
 
         assert_eq!(let_stmt.token, Token::Let);
         assert_eq!(let_stmt.name.value, name);
-        assert_eq!(let_stmt.name.token.literal(), name);
     }
 
     #[test]
@@ -557,7 +550,6 @@ return foobar;
     fn test_integer_literal(expr: &Expression, value: i64) {
         let literal = expr.pull_integer();
         assert_eq!(literal.value, value);
-        assert_eq!(literal.token.literal(), value.to_string());
     }
 
     #[test]
@@ -748,7 +740,6 @@ return foobar;
     fn test_identifier(exp: &Expression, value: &str) {
         let ident = exp.pull_identifier();
         assert_eq!(ident.value, value);
-        assert_eq!(ident.token.literal(), value);
     }
 
     enum Expected<'a> {

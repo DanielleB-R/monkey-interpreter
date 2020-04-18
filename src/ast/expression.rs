@@ -187,21 +187,14 @@ impl From<&Token> for Operator {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IntegerLiteral {
-    pub token: Token,
     pub value: i64,
 }
 
 impl Display for IntegerLiteral {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "{}", self.value)
-    }
-}
-
-impl PartialEq for IntegerLiteral {
-    fn eq(&self, other: &Self) -> bool {
-        self.value == other.value
     }
 }
 
@@ -232,21 +225,14 @@ impl Display for InfixExpression {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Boolean {
-    pub token: Token,
     pub value: bool,
 }
 
 impl Display for Boolean {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "{}", self.value)
-    }
-}
-
-impl PartialEq for Boolean {
-    fn eq(&self, other: &Self) -> bool {
-        self.value == other.value
     }
 }
 
@@ -257,7 +243,7 @@ impl From<Token> for Boolean {
             Token::False => false,
             _ => panic!("converting non-boolean token to boolean expr"),
         };
-        Self { token, value }
+        Self { value }
     }
 }
 
@@ -309,9 +295,8 @@ impl Display for CallExpression {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StringLiteral {
-    pub token: Token,
     pub value: String,
 }
 
@@ -321,16 +306,9 @@ impl Display for StringLiteral {
     }
 }
 
-impl PartialEq for StringLiteral {
-    fn eq(&self, other: &Self) -> bool {
-        self.value == other.value
-    }
-}
-
-impl From<Token> for StringLiteral {
-    fn from(token: Token) -> StringLiteral {
-        let value = token.literal().to_owned();
-        StringLiteral { token, value }
+impl From<String> for StringLiteral {
+    fn from(value: String) -> Self {
+        Self { value }
     }
 }
 
