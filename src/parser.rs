@@ -545,111 +545,136 @@ return foobar;
     #[test]
     fn test_parsing_infix_expressions() {
         let cases = vec![
-            ("5 + 5;", Expected::Int(5), Operator::Plus, Expected::Int(5)),
+            (
+                "5 + 5;",
+                Expression::IntegerLiteral(5),
+                Operator::Plus,
+                Expression::IntegerLiteral(5),
+            ),
             (
                 "5 - 5;",
-                Expected::Int(5),
+                Expression::IntegerLiteral(5),
                 Operator::Minus,
-                Expected::Int(5),
+                Expression::IntegerLiteral(5),
             ),
             (
                 "5 * 5;",
-                Expected::Int(5),
+                Expression::IntegerLiteral(5),
                 Operator::Asterisk,
-                Expected::Int(5),
+                Expression::IntegerLiteral(5),
             ),
             (
                 "5 / 5;",
-                Expected::Int(5),
+                Expression::IntegerLiteral(5),
                 Operator::Slash,
-                Expected::Int(5),
+                Expression::IntegerLiteral(5),
             ),
-            ("5 > 5;", Expected::Int(5), Operator::GT, Expected::Int(5)),
-            ("5 < 5;", Expected::Int(5), Operator::LT, Expected::Int(5)),
-            ("5 == 5;", Expected::Int(5), Operator::Eq, Expected::Int(5)),
+            (
+                "5 > 5;",
+                Expression::IntegerLiteral(5),
+                Operator::GT,
+                Expression::IntegerLiteral(5),
+            ),
+            (
+                "5 < 5;",
+                Expression::IntegerLiteral(5),
+                Operator::LT,
+                Expression::IntegerLiteral(5),
+            ),
+            (
+                "5 == 5;",
+                Expression::IntegerLiteral(5),
+                Operator::Eq,
+                Expression::IntegerLiteral(5),
+            ),
             (
                 "5 != 5;",
-                Expected::Int(5),
+                Expression::IntegerLiteral(5),
                 Operator::NotEq,
-                Expected::Int(5),
+                Expression::IntegerLiteral(5),
             ),
             (
                 "foobar + barfoo;",
-                Expected::Ident("foobar"),
+                Expression::Identifier("foobar".into()),
                 Operator::Plus,
-                Expected::Ident("barfoo"),
+                Expression::Identifier("barfoo".into()),
             ),
             (
                 "foobar - barfoo;",
-                Expected::Ident("foobar"),
+                Expression::Identifier("foobar".into()),
                 Operator::Minus,
-                Expected::Ident("barfoo"),
+                Expression::Identifier("barfoo".into()),
             ),
             (
                 "foobar * barfoo;",
-                Expected::Ident("foobar"),
+                Expression::Identifier("foobar".into()),
                 Operator::Asterisk,
-                Expected::Ident("barfoo"),
+                Expression::Identifier("barfoo".into()),
             ),
             (
                 "foobar / barfoo;",
-                Expected::Ident("foobar"),
+                Expression::Identifier("foobar".into()),
                 Operator::Slash,
-                Expected::Ident("barfoo"),
+                Expression::Identifier("barfoo".into()),
             ),
             (
                 "foobar > barfoo;",
-                Expected::Ident("foobar"),
+                Expression::Identifier("foobar".into()),
                 Operator::GT,
-                Expected::Ident("barfoo"),
+                Expression::Identifier("barfoo".into()),
             ),
             (
                 "foobar < barfoo;",
-                Expected::Ident("foobar"),
+                Expression::Identifier("foobar".into()),
                 Operator::LT,
-                Expected::Ident("barfoo"),
+                Expression::Identifier("barfoo".into()),
             ),
             (
                 "foobar == barfoo;",
-                Expected::Ident("foobar"),
+                Expression::Identifier("foobar".into()),
                 Operator::Eq,
-                Expected::Ident("barfoo"),
+                Expression::Identifier("barfoo".into()),
             ),
             (
                 "foobar != barfoo;",
-                Expected::Ident("foobar"),
+                Expression::Identifier("foobar".into()),
                 Operator::NotEq,
-                Expected::Ident("barfoo"),
+                Expression::Identifier("barfoo".into()),
             ),
             (
                 "true == true",
-                Expected::Bool(true),
+                Expression::Boolean(true.into()),
                 Operator::Eq,
-                Expected::Bool(true),
+                Expression::Boolean(true.into()),
             ),
             (
                 "true != false",
-                Expected::Bool(true),
+                Expression::Boolean(true.into()),
                 Operator::NotEq,
-                Expected::Bool(false),
+                Expression::Boolean(false.into()),
             ),
             (
                 "false == false",
-                Expected::Bool(false),
+                Expression::Boolean(false.into()),
                 Operator::Eq,
-                Expected::Bool(false),
+                Expression::Boolean(false.into()),
             ),
         ];
 
-        for (input, left, op, right) in cases {
+        for (input, left, operator, right) in cases {
             let program = Parser::new(Lexer::new(input.to_owned()))
                 .parse_program()
                 .expect("Parse errors found");
 
-            assert_eq!(program.statements.len(), 1);
-
-            let stmt = program.statements[0].pull_expr();
-            test_infix_expression(&stmt.expression, &left, op, &right);
+            assert_eq!(
+                program.statements,
+                vec![Expression::Infix(ast::InfixExpression {
+                    left: Box::new(left),
+                    operator,
+                    right: Box::new(right),
+                })
+                .into()]
+            );
         }
     }
 
@@ -740,19 +765,6 @@ return foobar;
         }
     }
 
-    fn test_infix_expression(
-        exp: &Expression,
-        left: &Expected,
-        operator: Operator,
-        right: &Expected,
-    ) {
-        let infix_exp = exp.pull_infix();
-
-        left.test(&infix_exp.left);
-        assert_eq!(infix_exp.operator, operator);
-        right.test(&infix_exp.right);
-    }
-
     #[test]
     fn test_if_expression() {
         let input = "if (x > y) { x }".to_owned();
@@ -763,11 +775,13 @@ return foobar;
 
         assert_eq!(program.statements.len(), 1);
         let expr = program.statements[0].pull_expr().expression.pull_if();
-        test_infix_expression(
-            &expr.condition,
-            &Expected::Ident("x"),
-            Operator::GT,
-            &Expected::Ident("y"),
+        assert_eq!(
+            expr.condition,
+            Box::new(Expression::Infix(ast::InfixExpression {
+                left: Box::new(Expression::Identifier("x".into())),
+                operator: Operator::GT,
+                right: Box::new(Expression::Identifier("y".into())),
+            }))
         );
 
         assert_eq!(
@@ -787,11 +801,13 @@ return foobar;
 
         assert_eq!(program.statements.len(), 1);
         let expr = program.statements[0].pull_expr().expression.pull_if();
-        test_infix_expression(
-            &expr.condition,
-            &Expected::Ident("x"),
-            Operator::GT,
-            &Expected::Ident("y"),
+        assert_eq!(
+            expr.condition,
+            Box::new(Expression::Infix(ast::InfixExpression {
+                left: Box::new(Expression::Identifier("x".into())),
+                operator: Operator::GT,
+                right: Box::new(Expression::Identifier("y".into())),
+            }))
         );
 
         assert_eq!(
@@ -821,13 +837,14 @@ return foobar;
 
         assert_eq!(expr.parameters, vec!["x".into(), "y".into()]);
 
-        assert_eq!(expr.body.statements.len(), 1);
-
-        test_infix_expression(
-            &expr.body.statements[0].pull_expr().expression,
-            &Expected::Ident("x"),
-            Operator::Plus,
-            &Expected::Ident("y"),
+        assert_eq!(
+            expr.body.statements,
+            vec![Expression::Infix(ast::InfixExpression {
+                left: Box::new(Expression::Identifier("x".into())),
+                operator: Operator::Plus,
+                right: Box::new(Expression::Identifier("y".into())),
+            })
+            .into()]
         );
     }
 
@@ -872,17 +889,21 @@ return foobar;
         assert_eq!(exp.arguments.len(), 3);
 
         assert_eq!(exp.arguments[0], Expression::IntegerLiteral(1));
-        test_infix_expression(
-            &exp.arguments[1],
-            &Expected::Int(2),
-            Operator::Asterisk,
-            &Expected::Int(3),
+        assert_eq!(
+            exp.arguments[1],
+            Expression::Infix(ast::InfixExpression {
+                left: Box::new(Expression::IntegerLiteral(2)),
+                operator: Operator::Asterisk,
+                right: Box::new(Expression::IntegerLiteral(3))
+            })
         );
-        test_infix_expression(
-            &exp.arguments[2],
-            &Expected::Int(4),
-            Operator::Plus,
-            &Expected::Int(5),
+        assert_eq!(
+            exp.arguments[2],
+            Expression::Infix(ast::InfixExpression {
+                left: Box::new(Expression::IntegerLiteral(4)),
+                operator: Operator::Plus,
+                right: Box::new(Expression::IntegerLiteral(5))
+            })
         );
     }
 
@@ -913,17 +934,21 @@ return foobar;
         assert_eq!(array.elements.len(), 3);
 
         assert_eq!(array.elements[0], Expression::IntegerLiteral(1));
-        test_infix_expression(
-            &array.elements[1],
-            &Expected::Int(2),
-            Operator::Asterisk,
-            &Expected::Int(2),
+        assert_eq!(
+            array.elements[1],
+            Expression::Infix(ast::InfixExpression {
+                left: Box::new(Expression::IntegerLiteral(2)),
+                operator: Operator::Asterisk,
+                right: Box::new(Expression::IntegerLiteral(2))
+            })
         );
-        test_infix_expression(
-            &array.elements[2],
-            &Expected::Int(3),
-            Operator::Plus,
-            &Expected::Int(3),
+        assert_eq!(
+            array.elements[2],
+            Expression::Infix(ast::InfixExpression {
+                left: Box::new(Expression::IntegerLiteral(3)),
+                operator: Operator::Plus,
+                right: Box::new(Expression::IntegerLiteral(3))
+            })
         );
     }
 
@@ -953,11 +978,13 @@ return foobar;
         let index = program.statements[0].pull_expr().expression.pull_index();
 
         assert_eq!(*index.left, Expression::Identifier("myArray".into()));
-        test_infix_expression(
-            &index.index,
-            &Expected::Int(1),
-            Operator::Plus,
-            &Expected::Int(1),
+        assert_eq!(
+            index.index,
+            Box::new(Expression::Infix(ast::InfixExpression {
+                left: Box::new(Expression::IntegerLiteral(1)),
+                operator: Operator::Plus,
+                right: Box::new(Expression::IntegerLiteral(1))
+            }))
         );
     }
 

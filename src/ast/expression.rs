@@ -39,13 +39,6 @@ impl Display for Expression {
 
 #[cfg(test)]
 impl Expression {
-    pub fn pull_infix(&self) -> &InfixExpression {
-        match self {
-            Self::Infix(expr) => expr,
-            _ => panic!("expected infix expression"),
-        }
-    }
-
     pub fn pull_if(&self) -> &IfExpression {
         match self {
             Self::If(expr) => expr,
