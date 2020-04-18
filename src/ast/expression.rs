@@ -46,20 +46,6 @@ impl Expression {
         }
     }
 
-    pub fn pull_identifier(&self) -> &Identifier {
-        match self {
-            Self::Identifier(expr) => expr,
-            _ => panic!("expected identifier expression"),
-        }
-    }
-
-    pub fn pull_boolean(&self) -> &Boolean {
-        match self {
-            Self::Boolean(expr) => expr,
-            _ => panic!("expected boolean expression"),
-        }
-    }
-
     pub fn pull_infix(&self) -> &InfixExpression {
         match self {
             Self::Infix(expr) => expr,
@@ -212,11 +198,18 @@ impl Display for Boolean {
 
 impl From<Token> for Boolean {
     fn from(token: Token) -> Self {
-        let value = match token {
-            Token::True => true,
-            Token::False => false,
-            _ => panic!("converting non-boolean token to boolean expr"),
-        };
+        Self {
+            value: match token {
+                Token::True => true,
+                Token::False => false,
+                _ => panic!("converting non-boolean token to boolean expr"),
+            },
+        }
+    }
+}
+
+impl From<bool> for Boolean {
+    fn from(value: bool) -> Self {
         Self { value }
     }
 }

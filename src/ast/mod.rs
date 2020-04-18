@@ -38,7 +38,7 @@ pub struct Program {
 
 impl Display for Program {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        for stmt in self.statements.iter() {
+        for stmt in &self.statements {
             write!(f, "{}", stmt)?;
         }
         Ok(())
@@ -66,6 +66,14 @@ impl From<Token> for Identifier {
 impl From<String> for Identifier {
     fn from(value: String) -> Self {
         Self { value }
+    }
+}
+
+impl From<&str> for Identifier {
+    fn from(value: &str) -> Self {
+        Self {
+            value: value.to_owned(),
+        }
     }
 }
 

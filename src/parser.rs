@@ -208,11 +208,10 @@ impl Parser {
     }
 
     fn parse_integer_literal(&self, contents: String) -> Result<Expression, ParseError> {
-        let value = contents
+        contents
             .parse()
-            .map_err(|_| ParseError::InvalidInteger { literal: contents })?;
-
-        Ok(Expression::IntegerLiteral(value))
+            .map(Expression::IntegerLiteral)
+            .map_err(|_| ParseError::InvalidInteger { literal: contents })
     }
 
     fn parse_boolean(&self, token: Token) -> Result<Expression, ParseError> {
@@ -375,7 +374,7 @@ impl Parser {
     }
 
     fn parse_string_literal(&self, literal: String) -> Result<Expression, ParseError> {
-        Ok(Expression::String(literal.into()))
+        Ok(Expression::String(literal))
     }
 
     fn parse_array_literal(&mut self) -> Result<Expression, ParseError> {
@@ -491,7 +490,7 @@ return foobar;
         assert_eq!(program.statements.len(), 1);
 
         let stmt = program.statements[0].pull_expr();
-        test_identifier(&stmt.expression, "foobar");
+        assert_eq!(stmt.expression, Expression::Identifier("foobar".into()))
     }
 
     #[test]
@@ -505,7 +504,7 @@ return foobar;
         assert_eq!(program.statements.len(), 1);
 
         let stmt = program.statements[0].pull_expr();
-        test_integer_literal(&stmt.expression, 5);
+        assert_eq!(stmt.expression, Expression::IntegerLiteral(5));
     }
 
     #[test]
@@ -530,10 +529,6 @@ return foobar;
             assert_eq!(exp.operator, *operator);
             value.test(&exp.right);
         }
-    }
-
-    fn test_integer_literal(expr: &Expression, value: i64) {
-        assert_eq!(expr, &Expression::IntegerLiteral(value));
     }
 
     #[test]
@@ -721,11 +716,6 @@ return foobar;
         }
     }
 
-    fn test_identifier(exp: &Expression, value: &str) {
-        let ident = exp.pull_identifier();
-        assert_eq!(ident.value, value);
-    }
-
     enum Expected<'a> {
         Int(i64),
         Ident(&'a str),
@@ -735,16 +725,11 @@ return foobar;
     impl<'a> Expected<'a> {
         fn test(&self, exp: &Expression) {
             match self {
-                Self::Int(n) => test_integer_literal(exp, *n),
-                Self::Ident(s) => test_identifier(exp, s),
-                Self::Bool(b) => test_boolean_literal(exp, *b),
+                Self::Int(n) => assert_eq!(exp, &Expression::IntegerLiteral(*n)),
+                Self::Ident(s) => assert_eq!(exp, &Expression::Identifier((*s).into())),
+                Self::Bool(b) => assert_eq!(exp, &Expression::Boolean((*b).into())),
             }
         }
-    }
-
-    fn test_boolean_literal(exp: &Expression, value: bool) {
-        let b = exp.pull_boolean();
-        assert_eq!(b.value, value);
     }
 
     fn test_infix_expression(
@@ -779,7 +764,7 @@ return foobar;
 
         assert_eq!(expr.consequence.statements.len(), 1);
         let stmt = expr.consequence.statements[0].pull_expr();
-        test_identifier(&stmt.expression, "x");
+        assert_eq!(stmt.expression, Expression::Identifier("x".into()));
         assert!(expr.alternative.is_none());
     }
 
@@ -802,13 +787,13 @@ return foobar;
 
         assert_eq!(expr.consequence.statements.len(), 1);
         let stmt = expr.consequence.statements[0].pull_expr();
-        test_identifier(&stmt.expression, "x");
+        assert_eq!(stmt.expression, Expression::Identifier("x".into()));
 
         match &expr.alternative {
             Some(ast::BlockStatement { statements, .. }) => {
                 assert_eq!(statements.len(), 1);
                 let stmt = statements[0].pull_expr();
-                test_identifier(&stmt.expression, "y");
+                assert_eq!(stmt.expression, Expression::Identifier("y".into()));
             }
             _ => panic!(),
         }
@@ -875,11 +860,11 @@ return foobar;
 
         let exp = program.statements[0].pull_expr().expression.pull_call();
 
-        test_identifier(&exp.function, "add");
+        assert_eq!(*exp.function, Expression::Identifier("add".into()));
 
         assert_eq!(exp.arguments.len(), 3);
 
-        test_integer_literal(&exp.arguments[0], 1);
+        assert_eq!(exp.arguments[0], Expression::IntegerLiteral(1));
         test_infix_expression(
             &exp.arguments[1],
             &Expected::Int(2),
@@ -920,7 +905,7 @@ return foobar;
         let array = program.statements[0].pull_expr().expression.pull_array();
         assert_eq!(array.elements.len(), 3);
 
-        test_integer_literal(&array.elements[0], 1);
+        assert_eq!(array.elements[0], Expression::IntegerLiteral(1));
         test_infix_expression(
             &array.elements[1],
             &Expected::Int(2),
@@ -959,7 +944,7 @@ return foobar;
         assert_eq!(program.statements.len(), 1);
         let index = program.statements[0].pull_expr().expression.pull_index();
 
-        test_identifier(&index.left, "myArray");
+        assert_eq!(*index.left, Expression::Identifier("myArray".into()));
         test_infix_expression(
             &index.index,
             &Expected::Int(1),
