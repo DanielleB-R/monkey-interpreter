@@ -13,7 +13,6 @@ custom_error! {
     MissingPrefixParseFunction{token_type: TokenType} = "no prefix parse function for {token_type} found",
 }
 
-type PrefixParseFn = fn(&mut Parser) -> Result<Expression, ParseError>;
 type InfixParseFn = fn(&mut Parser, Expression) -> Result<Expression, ParseError>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -52,27 +51,12 @@ pub struct Parser {
 
     cur_token: Option<Token>,
 
-    prefix_parse_fns: HashMap<TokenType, PrefixParseFn>,
     infix_parse_fns: HashMap<TokenType, InfixParseFn>,
 }
 
 impl Parser {
     pub fn new(mut lexer: Lexer) -> Self {
         let cur_token = Some(lexer.next().unwrap());
-
-        let mut prefix_parse_fns: HashMap<TokenType, PrefixParseFn> = Default::default();
-        prefix_parse_fns.insert(TokenType::Ident, Self::parse_identifier);
-        prefix_parse_fns.insert(TokenType::Int, Self::parse_integer_literal);
-        prefix_parse_fns.insert(TokenType::Bang, Self::parse_prefix_expression);
-        prefix_parse_fns.insert(TokenType::Minus, Self::parse_prefix_expression);
-        prefix_parse_fns.insert(TokenType::True, Self::parse_boolean);
-        prefix_parse_fns.insert(TokenType::False, Self::parse_boolean);
-        prefix_parse_fns.insert(TokenType::LParen, Self::parse_grouped_expression);
-        prefix_parse_fns.insert(TokenType::If, Self::parse_if_expression);
-        prefix_parse_fns.insert(TokenType::Function, Self::parse_function_literal);
-        prefix_parse_fns.insert(TokenType::String, Self::parse_string_literal);
-        prefix_parse_fns.insert(TokenType::LBracket, Self::parse_array_literal);
-        prefix_parse_fns.insert(TokenType::LBrace, Self::parse_hash_literal);
 
         let mut infix_parse_fns: HashMap<TokenType, InfixParseFn> = Default::default();
         infix_parse_fns.insert(TokenType::Plus, Self::parse_infix_expression);
@@ -90,7 +74,6 @@ impl Parser {
             lexer: lexer.peekable(),
             cur_token,
             errors: Default::default(),
-            prefix_parse_fns,
             infix_parse_fns,
         }
     }
@@ -192,13 +175,7 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
-        let prefix = self
-            .prefix_parse_fns
-            .get(&self.cur_token_type())
-            .ok_or_else(|| ParseError::MissingPrefixParseFunction {
-                token_type: self.cur_token_type(),
-            })?;
-        let mut left = prefix(self)?;
+        let mut left = self.parse_prefix()?;
 
         while !self.peek_token().is(TokenType::Semicolon) && precedence < self.peek_token().into() {
             let token_type: TokenType = self.peek_token().into();
@@ -211,6 +188,22 @@ impl Parser {
         }
 
         Ok(left)
+    }
+
+    fn parse_prefix(&mut self) -> Result<Expression, ParseError> {
+        match self.cur_token_type() {
+            TokenType::Ident => self.parse_identifier(),
+            TokenType::Int => self.parse_integer_literal(),
+            TokenType::Bang | TokenType::Minus => self.parse_prefix_expression(),
+            TokenType::True | TokenType::False => self.parse_boolean(),
+            TokenType::LParen => self.parse_grouped_expression(),
+            TokenType::If => self.parse_if_expression(),
+            TokenType::Function => self.parse_function_literal(),
+            TokenType::String => self.parse_string_literal(),
+            TokenType::LBracket => self.parse_array_literal(),
+            TokenType::LBrace => self.parse_hash_literal(),
+            token_type => Err(ParseError::MissingPrefixParseFunction { token_type }),
+        }
     }
 
     fn parse_identifier(&mut self) -> Result<Expression, ParseError> {
