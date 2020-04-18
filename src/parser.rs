@@ -2,7 +2,6 @@ use crate::ast::{self, Expression, Operator, Statement};
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
 use custom_error::custom_error;
-use std::collections::HashMap;
 
 custom_error! {
     #[derive(Clone, PartialEq, Eq)]
@@ -50,31 +49,14 @@ pub struct Parser {
     errors: Vec<ParseError>,
 
     cur_token: Option<Token>,
-
-    infix_parse_fns: HashMap<TokenType, InfixParseFn>,
 }
 
 impl Parser {
     pub fn new(mut lexer: Lexer) -> Self {
-        let cur_token = Some(lexer.next().unwrap());
-
-        let mut infix_parse_fns: HashMap<TokenType, InfixParseFn> = Default::default();
-        infix_parse_fns.insert(TokenType::Plus, Self::parse_infix_expression);
-        infix_parse_fns.insert(TokenType::Minus, Self::parse_infix_expression);
-        infix_parse_fns.insert(TokenType::Slash, Self::parse_infix_expression);
-        infix_parse_fns.insert(TokenType::Asterisk, Self::parse_infix_expression);
-        infix_parse_fns.insert(TokenType::Eq, Self::parse_infix_expression);
-        infix_parse_fns.insert(TokenType::NotEq, Self::parse_infix_expression);
-        infix_parse_fns.insert(TokenType::LT, Self::parse_infix_expression);
-        infix_parse_fns.insert(TokenType::GT, Self::parse_infix_expression);
-        infix_parse_fns.insert(TokenType::LParen, Self::parse_call_expression);
-        infix_parse_fns.insert(TokenType::LBracket, Self::parse_index_expression);
-
         Self {
+            cur_token: Some(lexer.next().unwrap()),
             lexer: lexer.peekable(),
-            cur_token,
             errors: Default::default(),
-            infix_parse_fns,
         }
     }
 
@@ -178,8 +160,7 @@ impl Parser {
         let mut left = self.parse_prefix()?;
 
         while !self.peek_token().is(TokenType::Semicolon) && precedence < self.peek_token().into() {
-            let token_type: TokenType = self.peek_token().into();
-            let infix = *match self.infix_parse_fns.get(&token_type) {
+            let infix = match self.parse_infix() {
                 None => return Ok(left),
                 Some(infix) => infix,
             };
@@ -203,6 +184,22 @@ impl Parser {
             TokenType::LBracket => self.parse_array_literal(),
             TokenType::LBrace => self.parse_hash_literal(),
             token_type => Err(ParseError::MissingPrefixParseFunction { token_type }),
+        }
+    }
+
+    fn parse_infix(&mut self) -> Option<InfixParseFn> {
+        match self.peek_token() {
+            Token::Plus
+            | Token::Minus
+            | Token::Slash
+            | Token::Asterisk
+            | Token::Eq
+            | Token::NotEq
+            | Token::LT
+            | Token::GT => Some(Self::parse_infix_expression),
+            Token::LParen => Some(Self::parse_call_expression),
+            Token::LBracket => Some(Self::parse_index_expression),
+            _ => None,
         }
     }
 
