@@ -13,7 +13,7 @@ pub enum Expression {
     Function(FunctionLiteral),
     Call(CallExpression),
     Array(ArrayLiteral),
-    String(StringLiteral),
+    String(String),
     Index(IndexExpression),
     Hash(HashLiteral),
 }
@@ -98,12 +98,6 @@ impl Expression {
         match self {
             Self::Index(expr) => expr,
             _ => panic!("expected index expression"),
-        }
-    }
-    pub fn pull_string(&self) -> &StringLiteral {
-        match self {
-            Self::String(expr) => expr,
-            _ => panic!("expected string expression"),
         }
     }
     pub fn pull_array(&self) -> &ArrayLiteral {
@@ -295,23 +289,6 @@ impl Display for CallExpression {
             self.arguments.iter().map(Expression::to_string).collect();
 
         write!(f, "{}({})", self.function, argument_names.join(", "))
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct StringLiteral {
-    pub value: String,
-}
-
-impl Display for StringLiteral {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.value)
-    }
-}
-
-impl From<String> for StringLiteral {
-    fn from(value: String) -> Self {
-        Self { value }
     }
 }
 

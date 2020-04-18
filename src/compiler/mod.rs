@@ -170,7 +170,7 @@ impl Compiler {
                     self.emit(Opcode::Constant, &[constant]);
                 }
                 Expression::String(s) => {
-                    let constant = self.add_constant(s.value.into());
+                    let constant = self.add_constant(s.into());
                     self.emit(Opcode::Constant, &[constant]);
                 }
                 Expression::Boolean(b) => {

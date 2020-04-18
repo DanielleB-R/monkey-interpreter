@@ -56,7 +56,7 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
                 let args = eval_expressions(call.arguments, env)?;
                 apply_function(function, args)
             }
-            ast::Expression::String(s) => Ok(Object::String(s.value)),
+            ast::Expression::String(s) => Ok(Object::String(s)),
             ast::Expression::Array(a) => eval_expressions(a.elements, env).map(Object::Array),
             ast::Expression::Hash(h) => eval_hash_literal(h.pairs, env),
             ast::Expression::Index(i) => {

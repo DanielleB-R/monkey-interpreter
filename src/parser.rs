@@ -903,8 +903,10 @@ return foobar;
             .parse_program()
             .expect("Parse errors found");
 
-        let literal = program.statements[0].pull_expr().expression.pull_string();
-        assert_eq!(literal.value, "hello world");
+        assert_eq!(
+            program.statements[0].pull_expr().expression,
+            Expression::String("hello world".to_owned())
+        );
     }
 
     #[test]
@@ -978,11 +980,11 @@ return foobar;
         let hash = program.statements[0].pull_expr().expression.pull_hash();
 
         assert_eq!(hash.pairs.len(), 3);
-        assert_eq!(hash.pairs[0].0.pull_string().value, "one");
+        assert_eq!(hash.pairs[0].0, Expression::String("one".to_owned()));
         assert_eq!(hash.pairs[0].1.pull_integer().value, 1);
-        assert_eq!(hash.pairs[1].0.pull_string().value, "two");
+        assert_eq!(hash.pairs[1].0, Expression::String("two".to_owned()));
         assert_eq!(hash.pairs[1].1.pull_integer().value, 2);
-        assert_eq!(hash.pairs[2].0.pull_string().value, "three");
+        assert_eq!(hash.pairs[2].0, Expression::String("three".to_owned()));
         assert_eq!(hash.pairs[2].1.pull_integer().value, 3);
     }
 
