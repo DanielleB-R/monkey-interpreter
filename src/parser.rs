@@ -440,16 +440,19 @@ let foobar = y;
         assert_eq!(program.statements.len(), 3);
 
         let cases = vec![
-            ("x", Expected::Int(5)),
-            ("y", Expected::Bool(true)),
-            ("foobar", Expected::Ident("y")),
+            ("x", Expression::IntegerLiteral(5)),
+            ("y", Expression::Boolean(true.into())),
+            ("foobar", Expression::Identifier("y".into())),
         ];
 
-        for ((name, exp), stmt) in cases.into_iter().zip(program.statements.iter()) {
-            let let_stmt = stmt.pull_let();
-
-            assert_eq!(let_stmt.name.value, name);
-            exp.test(&let_stmt.value)
+        for ((name, value), stmt) in cases.into_iter().zip(program.statements.into_iter()) {
+            assert_eq!(
+                stmt,
+                Statement::Let(ast::LetStatement {
+                    name: name.into(),
+                    value
+                })
+            );
         }
     }
 
@@ -465,18 +468,17 @@ return foobar;
             .parse_program()
             .expect("Parse errors found");
 
-        assert_eq!(program.statements.len(), 3);
-
-        let expected = [
-            Expected::Int(5),
-            Expected::Bool(true),
-            Expected::Ident("foobar"),
-        ];
-
-        for (stmt, value) in program.statements.iter().zip(expected.iter()) {
-            let ret_stmt = stmt.pull_return();
-            value.test(&ret_stmt.return_value);
-        }
+        assert_eq!(
+            program.statements,
+            vec![
+                Expression::IntegerLiteral(5),
+                Expression::Boolean(true.into()),
+                Expression::Identifier("foobar".into()),
+            ]
+            .into_iter()
+            .map(|return_value| Statement::Return(ast::ReturnStatement { return_value }))
+            .collect::<Vec<Statement>>()
+        );
     }
 
     #[test]
@@ -749,22 +751,6 @@ return foobar;
         }
     }
 
-    enum Expected<'a> {
-        Int(i64),
-        Ident(&'a str),
-        Bool(bool),
-    }
-
-    impl<'a> Expected<'a> {
-        fn test(&self, exp: &Expression) {
-            match self {
-                Self::Int(n) => assert_eq!(exp, &Expression::IntegerLiteral(*n)),
-                Self::Ident(s) => assert_eq!(exp, &Expression::Identifier((*s).into())),
-                Self::Bool(b) => assert_eq!(exp, &Expression::Boolean((*b).into())),
-            }
-        }
-    }
-
     #[test]
     fn test_if_expression() {
         let input = "if (x > y) { x }".to_owned();
@@ -773,22 +759,21 @@ return foobar;
             .parse_program()
             .expect("Parse errors found");
 
-        assert_eq!(program.statements.len(), 1);
-        let expr = program.statements[0].pull_expr().expression.pull_if();
         assert_eq!(
-            expr.condition,
-            Box::new(Expression::Infix(ast::InfixExpression {
-                left: Box::new(Expression::Identifier("x".into())),
-                operator: Operator::GT,
-                right: Box::new(Expression::Identifier("y".into())),
-            }))
+            program.statements,
+            vec![Expression::If(ast::IfExpression {
+                condition: Box::new(Expression::Infix(ast::InfixExpression {
+                    left: Box::new(Expression::Identifier("x".into())),
+                    operator: Operator::GT,
+                    right: Box::new(Expression::Identifier("y".into())),
+                })),
+                consequence: ast::BlockStatement {
+                    statements: vec![Expression::Identifier("x".into()).into()],
+                },
+                alternative: None,
+            })
+            .into()]
         );
-
-        assert_eq!(
-            expr.consequence.statements,
-            vec![Expression::Identifier("x".into()).into()]
-        );
-        assert!(expr.alternative.is_none());
     }
 
     #[test]
@@ -799,27 +784,22 @@ return foobar;
             .parse_program()
             .expect("Parse errors found");
 
-        assert_eq!(program.statements.len(), 1);
-        let expr = program.statements[0].pull_expr().expression.pull_if();
         assert_eq!(
-            expr.condition,
-            Box::new(Expression::Infix(ast::InfixExpression {
-                left: Box::new(Expression::Identifier("x".into())),
-                operator: Operator::GT,
-                right: Box::new(Expression::Identifier("y".into())),
-            }))
-        );
-
-        assert_eq!(
-            expr.consequence.statements,
-            vec![Expression::Identifier("x".into()).into()]
-        );
-
-        assert_eq!(
-            expr.alternative,
-            Some(ast::BlockStatement {
-                statements: vec![Expression::Identifier("y".into()).into()]
+            program.statements,
+            vec![Expression::If(ast::IfExpression {
+                condition: Box::new(Expression::Infix(ast::InfixExpression {
+                    left: Box::new(Expression::Identifier("x".into())),
+                    operator: Operator::GT,
+                    right: Box::new(Expression::Identifier("y".into())),
+                })),
+                consequence: ast::BlockStatement {
+                    statements: vec![Expression::Identifier("x".into()).into()],
+                },
+                alternative: Some(ast::BlockStatement {
+                    statements: vec![Expression::Identifier("y".into()).into()]
+                }),
             })
+            .into()]
         );
     }
 
@@ -831,18 +811,18 @@ return foobar;
             .parse_program()
             .expect("Parse errors found");
 
-        assert_eq!(program.statements.len(), 1);
-
-        let expr = program.statements[0].pull_expr().expression.pull_function();
-
-        assert_eq!(expr.parameters, vec!["x".into(), "y".into()]);
-
         assert_eq!(
-            expr.body.statements,
-            vec![Expression::Infix(ast::InfixExpression {
-                left: Box::new(Expression::Identifier("x".into())),
-                operator: Operator::Plus,
-                right: Box::new(Expression::Identifier("y".into())),
+            program.statements,
+            vec![Expression::Function(ast::FunctionLiteral {
+                parameters: vec!["x".into(), "y".into()],
+                body: ast::BlockStatement {
+                    statements: vec![Expression::Infix(ast::InfixExpression {
+                        left: Box::new(Expression::Identifier("x".into())),
+                        operator: Operator::Plus,
+                        right: Box::new(Expression::Identifier("y".into())),
+                    })
+                    .into()]
+                }
             })
             .into()]
         );
@@ -856,18 +836,18 @@ return foobar;
             ("fn(x, y, z) {}", vec!["x".into(), "y".into(), "z".into()]),
         ];
 
-        for (input, params) in cases {
+        for (input, parameters) in cases {
             let program = Parser::new(Lexer::new(input.to_owned()))
                 .parse_program()
                 .expect("Parse errors found");
 
             assert_eq!(
-                program.statements[0]
-                    .pull_expr()
-                    .expression
-                    .pull_function()
-                    .parameters,
-                params
+                program.statements,
+                vec![Expression::Function(ast::FunctionLiteral {
+                    parameters,
+                    body: ast::BlockStatement { statements: vec![] }
+                })
+                .into()]
             );
         }
     }
@@ -880,30 +860,25 @@ return foobar;
             .parse_program()
             .expect("Parse errors found");
 
-        assert_eq!(program.statements.len(), 1);
-
-        let exp = program.statements[0].pull_expr().expression.pull_call();
-
-        assert_eq!(*exp.function, Expression::Identifier("add".into()));
-
-        assert_eq!(exp.arguments.len(), 3);
-
-        assert_eq!(exp.arguments[0], Expression::IntegerLiteral(1));
         assert_eq!(
-            exp.arguments[1],
-            Expression::Infix(ast::InfixExpression {
-                left: Box::new(Expression::IntegerLiteral(2)),
-                operator: Operator::Asterisk,
-                right: Box::new(Expression::IntegerLiteral(3))
+            program.statements,
+            vec![Expression::Call(ast::CallExpression {
+                function: Box::new(Expression::Identifier("add".into())),
+                arguments: vec![
+                    Expression::IntegerLiteral(1),
+                    Expression::Infix(ast::InfixExpression {
+                        left: Box::new(Expression::IntegerLiteral(2)),
+                        operator: Operator::Asterisk,
+                        right: Box::new(Expression::IntegerLiteral(3))
+                    }),
+                    Expression::Infix(ast::InfixExpression {
+                        left: Box::new(Expression::IntegerLiteral(4)),
+                        operator: Operator::Plus,
+                        right: Box::new(Expression::IntegerLiteral(5))
+                    })
+                ]
             })
-        );
-        assert_eq!(
-            exp.arguments[2],
-            Expression::Infix(ast::InfixExpression {
-                left: Box::new(Expression::IntegerLiteral(4)),
-                operator: Operator::Plus,
-                right: Box::new(Expression::IntegerLiteral(5))
-            })
+            .into()]
         );
     }
 
@@ -929,26 +904,25 @@ return foobar;
             .parse_program()
             .expect("Parse errors found");
 
-        assert_eq!(program.statements.len(), 1);
-        let array = program.statements[0].pull_expr().expression.pull_array();
-        assert_eq!(array.elements.len(), 3);
-
-        assert_eq!(array.elements[0], Expression::IntegerLiteral(1));
         assert_eq!(
-            array.elements[1],
-            Expression::Infix(ast::InfixExpression {
-                left: Box::new(Expression::IntegerLiteral(2)),
-                operator: Operator::Asterisk,
-                right: Box::new(Expression::IntegerLiteral(2))
-            })
-        );
-        assert_eq!(
-            array.elements[2],
-            Expression::Infix(ast::InfixExpression {
-                left: Box::new(Expression::IntegerLiteral(3)),
-                operator: Operator::Plus,
-                right: Box::new(Expression::IntegerLiteral(3))
-            })
+            program.statements,
+            vec![Expression::Array(
+                vec![
+                    Expression::IntegerLiteral(1),
+                    Expression::Infix(ast::InfixExpression {
+                        left: Box::new(Expression::IntegerLiteral(2)),
+                        operator: Operator::Asterisk,
+                        right: Box::new(Expression::IntegerLiteral(2))
+                    }),
+                    Expression::Infix(ast::InfixExpression {
+                        left: Box::new(Expression::IntegerLiteral(3)),
+                        operator: Operator::Plus,
+                        right: Box::new(Expression::IntegerLiteral(3))
+                    })
+                ]
+                .into()
+            )
+            .into()]
         );
     }
 
@@ -975,16 +949,18 @@ return foobar;
             .expect("Parse errors found");
 
         assert_eq!(program.statements.len(), 1);
-        let index = program.statements[0].pull_expr().expression.pull_index();
 
-        assert_eq!(*index.left, Expression::Identifier("myArray".into()));
         assert_eq!(
-            index.index,
-            Box::new(Expression::Infix(ast::InfixExpression {
-                left: Box::new(Expression::IntegerLiteral(1)),
-                operator: Operator::Plus,
-                right: Box::new(Expression::IntegerLiteral(1))
-            }))
+            program.statements[0],
+            Expression::Index(ast::IndexExpression {
+                left: Box::new(Expression::Identifier("myArray".into())),
+                index: Box::new(Expression::Infix(ast::InfixExpression {
+                    left: Box::new(Expression::IntegerLiteral(1)),
+                    operator: Operator::Plus,
+                    right: Box::new(Expression::IntegerLiteral(1))
+                })),
+            })
+            .into()
         );
     }
 

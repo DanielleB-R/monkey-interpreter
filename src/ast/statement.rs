@@ -44,30 +44,6 @@ impl From<Expression> for Statement {
     }
 }
 
-#[cfg(test)]
-impl Statement {
-    pub fn pull_let(&self) -> &LetStatement {
-        match self {
-            Self::Let(stmt) => stmt,
-            _ => panic!("expected let statement"),
-        }
-    }
-
-    pub fn pull_return(&self) -> &ReturnStatement {
-        match self {
-            Self::Return(stmt) => stmt,
-            _ => panic!("expected return statement"),
-        }
-    }
-
-    pub fn pull_expr(&self) -> &ExpressionStatement {
-        match self {
-            Self::Expr(stmt) => stmt,
-            _ => panic!("expected expr statement"),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct LetStatement {
     pub name: Identifier,

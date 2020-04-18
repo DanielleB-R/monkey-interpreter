@@ -37,42 +37,6 @@ impl Display for Expression {
     }
 }
 
-#[cfg(test)]
-impl Expression {
-    pub fn pull_if(&self) -> &IfExpression {
-        match self {
-            Self::If(expr) => expr,
-            _ => panic!("expected if expression"),
-        }
-    }
-
-    pub fn pull_function(&self) -> &FunctionLiteral {
-        match self {
-            Self::Function(expr) => expr,
-            _ => panic!("expected function expression"),
-        }
-    }
-
-    pub fn pull_call(&self) -> &CallExpression {
-        match self {
-            Self::Call(expr) => expr,
-            _ => panic!("expected call expression"),
-        }
-    }
-    pub fn pull_index(&self) -> &IndexExpression {
-        match self {
-            Self::Index(expr) => expr,
-            _ => panic!("expected index expression"),
-        }
-    }
-    pub fn pull_array(&self) -> &ArrayLiteral {
-        match self {
-            Self::Array(expr) => expr,
-            _ => panic!("expected array expression"),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Operator {
     Bang,
