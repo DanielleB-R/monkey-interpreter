@@ -263,7 +263,6 @@ impl From<Token> for Boolean {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct IfExpression {
-    pub token: Token,
     pub condition: Box<Expression>,
     pub consequence: BlockStatement,
     pub alternative: Option<BlockStatement>,
@@ -281,7 +280,6 @@ impl Display for IfExpression {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionLiteral {
-    pub token: Token,
     pub parameters: Vec<Identifier>,
     pub body: BlockStatement,
 }
@@ -338,7 +336,6 @@ impl From<Token> for StringLiteral {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ArrayLiteral {
-    pub token: Token,
     pub elements: Vec<Expression>,
 }
 
@@ -365,7 +362,6 @@ impl Display for IndexExpression {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct HashLiteral {
-    pub token: Token,
     pub pairs: Vec<(Expression, Expression)>,
 }
 
