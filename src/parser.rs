@@ -101,6 +101,10 @@ impl Parser {
         self.cur_token.as_ref().unwrap().into()
     }
 
+    fn take_token(&mut self) -> token::Token {
+        self.cur_token.take().unwrap()
+    }
+
     fn skip(&mut self, token_type: TokenType) {
         if self.peek_token().is(token_type) {
             self.next_token();
@@ -133,13 +137,13 @@ impl Parser {
     }
 
     fn parse_let_statement(&mut self) -> Option<ast::LetStatement> {
-        let token = self.cur_token.take().unwrap().into();
+        let token = self.take_token();
 
         if !self.expect_peek(TokenType::Ident) {
             return None;
         }
 
-        let name = self.cur_token.take().unwrap().into();
+        let name = self.take_token().into();
 
         if !self.expect_peek(TokenType::Assign) {
             return None;
@@ -155,7 +159,7 @@ impl Parser {
     }
 
     fn parse_return_statement(&mut self) -> Option<ast::ReturnStatement> {
-        let token = self.cur_token.take().unwrap();
+        let token = self.take_token();
 
         self.next_token();
 
@@ -202,13 +206,11 @@ impl Parser {
     }
 
     fn parse_identifier(&mut self) -> Option<ast::Expression> {
-        Some(Expression::Identifier(
-            self.cur_token.take().unwrap().into(),
-        ))
+        Some(Expression::Identifier(self.take_token().into()))
     }
 
     fn parse_integer_literal(&mut self) -> Option<ast::Expression> {
-        let token = self.cur_token.take().unwrap();
+        let token = self.take_token();
 
         let value: i64 = match token.literal().parse::<i64>() {
             Ok(v) => v,
@@ -226,7 +228,7 @@ impl Parser {
     }
 
     fn parse_boolean(&mut self) -> Option<ast::Expression> {
-        Some(Expression::Boolean(self.cur_token.take().unwrap().into()))
+        Some(Expression::Boolean(self.take_token().into()))
     }
 
     fn expect_peek(&mut self, expected: TokenType) -> bool {
@@ -255,7 +257,7 @@ impl Parser {
     }
 
     fn parse_prefix_expression(&mut self) -> Option<ast::Expression> {
-        let token = self.cur_token.take().unwrap();
+        let token = self.take_token();
         let operator = Operator::from(&token);
 
         self.next_token();
@@ -270,7 +272,7 @@ impl Parser {
     }
 
     fn parse_infix_expression(&mut self, left: ast::Expression) -> Option<ast::Expression> {
-        let token = self.cur_token.take().unwrap();
+        let token = self.take_token();
         let operator = Operator::from(&token);
 
         let precedence = (&token).into();
@@ -298,7 +300,7 @@ impl Parser {
     }
 
     fn parse_if_expression(&mut self) -> Option<ast::Expression> {
-        let token = self.cur_token.take().unwrap();
+        let token = self.take_token();
 
         if !self.expect_peek(TokenType::LParen) {
             return None;
@@ -338,7 +340,7 @@ impl Parser {
     }
 
     fn parse_block_statement(&mut self) -> ast::BlockStatement {
-        let token = self.cur_token.take().unwrap();
+        let token = self.take_token();
         let mut statements = vec![];
 
         self.next_token();
@@ -354,7 +356,7 @@ impl Parser {
     }
 
     fn parse_function_literal(&mut self) -> Option<ast::Expression> {
-        let token = self.cur_token.take().unwrap();
+        let token = self.take_token();
 
         if !self.expect_peek(TokenType::LParen) {
             return None;
@@ -384,12 +386,12 @@ impl Parser {
 
         self.next_token();
 
-        identifiers.push(self.cur_token.take().unwrap().into());
+        identifiers.push(self.take_token().into());
 
         while self.peek_token().is(TokenType::Comma) {
             self.next_token();
             self.next_token();
-            identifiers.push(self.cur_token.take().unwrap().into());
+            identifiers.push(self.take_token().into());
         }
 
         if self.expect_peek(TokenType::RParen) {
@@ -400,7 +402,7 @@ impl Parser {
     }
 
     fn parse_call_expression(&mut self, function: ast::Expression) -> Option<ast::Expression> {
-        let token = self.cur_token.take().unwrap();
+        let token = self.take_token();
         let arguments = self.parse_expression_list(TokenType::RParen)?;
 
         Some(Expression::Call(ast::CallExpression {
@@ -436,19 +438,17 @@ impl Parser {
     }
 
     fn parse_string_literal(&mut self) -> Option<ast::Expression> {
-        Some(ast::Expression::String(
-            self.cur_token.take().unwrap().into(),
-        ))
+        Some(ast::Expression::String(self.take_token().into()))
     }
 
     fn parse_array_literal(&mut self) -> Option<ast::Expression> {
-        let token = self.cur_token.take().unwrap();
+        let token = self.take_token();
         let elements = self.parse_expression_list(TokenType::RBracket)?;
         Some(Expression::Array(ast::ArrayLiteral { token, elements }))
     }
 
     fn parse_index_expression(&mut self, left: ast::Expression) -> Option<ast::Expression> {
-        let token = self.cur_token.take().unwrap();
+        let token = self.take_token();
 
         self.next_token();
         let index = self.parse_expression(Precedence::Lowest)?;
@@ -465,7 +465,7 @@ impl Parser {
     }
 
     fn parse_hash_literal(&mut self) -> Option<ast::Expression> {
-        let token = self.cur_token.take().unwrap();
+        let token = self.take_token();
         let mut pairs = vec![];
 
         while !self.peek_token().is(TokenType::RBrace) {
