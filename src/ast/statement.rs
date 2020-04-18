@@ -1,5 +1,4 @@
 use super::{Expression, Identifier};
-use crate::token::Token;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -65,7 +64,6 @@ impl Statement {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LetStatement {
-    pub token: Token,
     pub name: Identifier,
     pub value: Expression,
 }
@@ -78,7 +76,6 @@ impl Display for LetStatement {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReturnStatement {
-    pub token: Token,
     pub return_value: Expression,
 }
 
@@ -103,7 +100,6 @@ impl Display for ExpressionStatement {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlockStatement {
-    pub token: Token,
     pub statements: Vec<Statement>,
 }
 

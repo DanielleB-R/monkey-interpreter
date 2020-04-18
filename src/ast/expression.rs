@@ -187,6 +187,12 @@ impl From<&Token> for Operator {
     }
 }
 
+impl From<Token> for Operator {
+    fn from(input: Token) -> Self {
+        (&input).into()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct IntegerLiteral {
     pub value: i64,
@@ -200,7 +206,6 @@ impl Display for IntegerLiteral {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PrefixExpression {
-    pub token: Token,
     pub operator: Operator,
     pub right: Box<Expression>,
 }
@@ -213,7 +218,6 @@ impl Display for PrefixExpression {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InfixExpression {
-    pub token: Token,
     pub left: Box<Expression>,
     pub operator: Operator,
     pub right: Box<Expression>,
@@ -281,7 +285,6 @@ impl Display for FunctionLiteral {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CallExpression {
-    pub token: Token,
     pub function: Box<Expression>,
     pub arguments: Vec<Expression>,
 }
@@ -327,7 +330,6 @@ impl Display for ArrayLiteral {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct IndexExpression {
-    pub token: Token,
     pub left: Box<Expression>,
     pub index: Box<Expression>,
 }
@@ -351,5 +353,11 @@ impl Display for HashLiteral {
             .map(|(key, value)| format!("{}:{}", key, value))
             .collect();
         write!(f, "{{{}}}", argument_names.join(", "))
+    }
+}
+
+impl From<Vec<(Expression, Expression)>> for HashLiteral {
+    fn from(pairs: Vec<(Expression, Expression)>) -> Self {
+        Self { pairs }
     }
 }

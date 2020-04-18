@@ -117,7 +117,6 @@ impl Parser {
     }
 
     fn parse_let_statement(&mut self) -> Result<Statement, ParseError> {
-        let token = self.take_token();
         self.expect_peek(TokenType::Ident)?;
 
         let name = self.take_token().into();
@@ -128,21 +127,17 @@ impl Parser {
 
         self.skip(TokenType::Semicolon);
 
-        Ok(ast::LetStatement { token, name, value }.into())
+        Ok(ast::LetStatement { name, value }.into())
     }
 
     fn parse_return_statement(&mut self) -> Result<Statement, ParseError> {
-        let token = self.advance_token();
+        self.next_token();
 
         let return_value = self.parse_expression(Precedence::Lowest)?;
 
         self.skip(TokenType::Semicolon);
 
-        Ok(ast::ReturnStatement {
-            token,
-            return_value,
-        }
-        .into())
+        Ok(ast::ReturnStatement { return_value }.into())
     }
 
     fn parse_expression_statement(&mut self) -> Result<Statement, ParseError> {
@@ -238,25 +233,23 @@ impl Parser {
 
     fn parse_prefix_expression(&mut self, token: Token) -> Result<Expression, ParseError> {
         self.next_token();
-        let right = self.parse_expression(Precedence::Prefix)?;
-
-        Ok(Expression::Prefix(ast::PrefixExpression {
-            operator: (&token).into(),
-            token,
-            right: Box::new(right),
-        }))
+        self.parse_expression(Precedence::Prefix).map(|right| {
+            Expression::Prefix(ast::PrefixExpression {
+                operator: token.into(),
+                right: Box::new(right),
+            })
+        })
     }
 
     fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression, ParseError> {
         let token = self.advance_token();
-        let right = self.parse_expression((&token).into())?;
-
-        Ok(Expression::Infix(ast::InfixExpression {
-            operator: (&token).into(),
-            token,
-            left: Box::new(left),
-            right: Box::new(right),
-        }))
+        self.parse_expression((&token).into()).map(|right| {
+            Expression::Infix(ast::InfixExpression {
+                operator: token.into(),
+                left: Box::new(left),
+                right: Box::new(right),
+            })
+        })
     }
 
     fn parse_grouped_expression(&mut self) -> Result<Expression, ParseError> {
@@ -297,7 +290,7 @@ impl Parser {
     }
 
     fn parse_block_statement(&mut self) -> ast::BlockStatement {
-        let token = self.advance_token();
+        self.next_token();
         let mut statements = vec![];
 
         while !self.cur_token_is(TokenType::RBrace) && !self.cur_token_is(TokenType::Eof) {
@@ -309,7 +302,7 @@ impl Parser {
             self.next_token();
         }
 
-        ast::BlockStatement { token, statements }
+        ast::BlockStatement { statements }
     }
 
     fn parse_function_literal(&mut self) -> Result<Expression, ParseError> {
@@ -350,14 +343,13 @@ impl Parser {
     }
 
     fn parse_call_expression(&mut self, function: Expression) -> Result<Expression, ParseError> {
-        let token = self.take_token();
-        let arguments = self.parse_expression_list(TokenType::RParen)?;
-
-        Ok(Expression::Call(ast::CallExpression {
-            token,
-            function: Box::new(function),
-            arguments,
-        }))
+        self.parse_expression_list(TokenType::RParen)
+            .map(|arguments| {
+                Expression::Call(ast::CallExpression {
+                    function: Box::new(function),
+                    arguments,
+                })
+            })
     }
 
     fn parse_expression_list(&mut self, end: TokenType) -> Result<Vec<Expression>, ParseError> {
@@ -392,13 +384,12 @@ impl Parser {
     }
 
     fn parse_index_expression(&mut self, left: Expression) -> Result<Expression, ParseError> {
-        let token = self.advance_token();
+        self.next_token();
 
         let index = self.parse_expression(Precedence::Lowest)?;
 
         self.expect_peek(TokenType::RBracket)?;
         Ok(Expression::Index(ast::IndexExpression {
-            token,
             left: Box::new(left),
             index: Box::new(index),
         }))
@@ -449,23 +440,18 @@ let foobar = y;
 
         assert_eq!(program.statements.len(), 3);
 
-        let cases = [
+        let cases = vec![
             ("x", Expected::Int(5)),
             ("y", Expected::Bool(true)),
             ("foobar", Expected::Ident("y")),
         ];
 
-        for (case, stmt) in cases.iter().zip(program.statements.iter()) {
-            test_let_statement(stmt, case.0);
-            case.1.test(&stmt.pull_let().value)
+        for ((name, exp), stmt) in cases.into_iter().zip(program.statements.iter()) {
+            let let_stmt = stmt.pull_let();
+
+            assert_eq!(let_stmt.name.value, name);
+            exp.test(&let_stmt.value)
         }
-    }
-
-    fn test_let_statement(stmt: &Statement, name: &str) {
-        let let_stmt = stmt.pull_let();
-
-        assert_eq!(let_stmt.token, Token::Let);
-        assert_eq!(let_stmt.name.value, name);
     }
 
     #[test]
@@ -490,7 +476,6 @@ return foobar;
 
         for (stmt, value) in program.statements.iter().zip(expected.iter()) {
             let ret_stmt = stmt.pull_return();
-            assert_eq!(ret_stmt.token, Token::Return);
             value.test(&ret_stmt.return_value);
         }
     }
@@ -1009,8 +994,9 @@ return foobar;
             .parse_program()
             .expect("Parse errors found");
 
-        let hash = program.statements[0].pull_expr().expression.pull_hash();
-
-        assert_eq!(hash.pairs.len(), 0);
+        assert_eq!(
+            program.statements[0].pull_expr().expression,
+            Expression::Hash(vec![].into())
+        );
     }
 }

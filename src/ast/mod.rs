@@ -77,7 +77,6 @@ mod test {
     fn test_display() {
         let program = Program {
             statements: vec![Statement::Let(LetStatement {
-                token: Token::Let,
                 name: Token::Ident("myVar".to_owned()).into(),
                 value: Expression::Identifier(Identifier {
                     value: "anotherVar".to_owned(),
