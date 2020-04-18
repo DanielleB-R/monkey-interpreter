@@ -21,6 +21,24 @@ impl Display for Statement {
     }
 }
 
+impl From<LetStatement> for Statement {
+    fn from(stmt: LetStatement) -> Self {
+        Self::Let(stmt)
+    }
+}
+
+impl From<ReturnStatement> for Statement {
+    fn from(stmt: ReturnStatement) -> Self {
+        Self::Return(stmt)
+    }
+}
+
+impl From<ExpressionStatement> for Statement {
+    fn from(stmt: ExpressionStatement) -> Self {
+        Self::Expr(stmt)
+    }
+}
+
 #[cfg(test)]
 impl Statement {
     pub fn pull_let(&self) -> &LetStatement {

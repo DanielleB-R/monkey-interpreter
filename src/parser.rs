@@ -105,6 +105,10 @@ impl Parser {
         self.cur_token.take().unwrap()
     }
 
+    fn advance_token(&mut self) -> token::Token {
+        self.cur_token.replace(self.lexer.next().unwrap()).unwrap()
+    }
+
     fn skip(&mut self, token_type: TokenType) {
         if self.peek_token().is(token_type) {
             self.next_token();
@@ -130,13 +134,13 @@ impl Parser {
 
     fn parse_statement(&mut self) -> Option<Statement> {
         match self.cur_token_type() {
-            TokenType::Let => self.parse_let_statement().map(Statement::Let),
-            TokenType::Return => self.parse_return_statement().map(Statement::Return),
-            _ => self.parse_expression_statement().map(Statement::Expr),
+            TokenType::Let => self.parse_let_statement(),
+            TokenType::Return => self.parse_return_statement(),
+            _ => self.parse_expression_statement(),
         }
     }
 
-    fn parse_let_statement(&mut self) -> Option<ast::LetStatement> {
+    fn parse_let_statement(&mut self) -> Option<Statement> {
         let token = self.take_token();
 
         if !self.expect_peek(TokenType::Ident) {
@@ -155,32 +159,36 @@ impl Parser {
 
         self.skip(TokenType::Semicolon);
 
-        Some(ast::LetStatement { token, name, value })
+        Some(ast::LetStatement { token, name, value }.into())
     }
 
-    fn parse_return_statement(&mut self) -> Option<ast::ReturnStatement> {
-        let token = self.take_token();
-
-        self.next_token();
+    fn parse_return_statement(&mut self) -> Option<Statement> {
+        let token = self.advance_token();
 
         let return_value = self.parse_expression(Precedence::Lowest)?;
 
         self.skip(TokenType::Semicolon);
 
-        Some(ast::ReturnStatement {
-            token,
-            return_value,
-        })
+        Some(
+            ast::ReturnStatement {
+                token,
+                return_value,
+            }
+            .into(),
+        )
     }
 
-    fn parse_expression_statement(&mut self) -> Option<ast::ExpressionStatement> {
+    fn parse_expression_statement(&mut self) -> Option<Statement> {
         let expression = self.parse_expression(Precedence::Lowest);
 
         self.skip(TokenType::Semicolon);
 
-        Some(ast::ExpressionStatement {
-            expression: expression?,
-        })
+        Some(
+            ast::ExpressionStatement {
+                expression: expression?,
+            }
+            .into(),
+        )
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Option<ast::Expression> {
@@ -257,10 +265,8 @@ impl Parser {
     }
 
     fn parse_prefix_expression(&mut self) -> Option<ast::Expression> {
-        let token = self.take_token();
+        let token = self.advance_token();
         let operator = Operator::from(&token);
-
-        self.next_token();
 
         let right = Box::new(self.parse_expression(Precedence::Prefix)?);
 
@@ -272,11 +278,10 @@ impl Parser {
     }
 
     fn parse_infix_expression(&mut self, left: ast::Expression) -> Option<ast::Expression> {
-        let token = self.take_token();
+        let token = self.advance_token();
         let operator = Operator::from(&token);
 
         let precedence = (&token).into();
-        self.next_token();
         let right = Box::new(self.parse_expression(precedence)?);
 
         Some(Expression::Infix(ast::InfixExpression {
@@ -340,10 +345,8 @@ impl Parser {
     }
 
     fn parse_block_statement(&mut self) -> ast::BlockStatement {
-        let token = self.take_token();
+        let token = self.advance_token();
         let mut statements = vec![];
-
-        self.next_token();
 
         while !self.cur_token_is(TokenType::RBrace) && !self.cur_token_is(TokenType::Eof) {
             if let Some(stmt) = self.parse_statement() {
@@ -448,9 +451,8 @@ impl Parser {
     }
 
     fn parse_index_expression(&mut self, left: ast::Expression) -> Option<ast::Expression> {
-        let token = self.take_token();
+        let token = self.advance_token();
 
-        self.next_token();
         let index = self.parse_expression(Precedence::Lowest)?;
 
         if self.expect_peek(TokenType::RBracket) {
