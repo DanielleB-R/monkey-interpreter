@@ -1,7 +1,7 @@
 use strum_macros::{Display, EnumDiscriminants};
 
 #[derive(Debug, Display, Clone, PartialEq, Eq, EnumDiscriminants)]
-#[strum_discriminants(derive(Hash))]
+#[strum_discriminants(derive(Hash, Display))]
 #[strum_discriminants(name(TokenType))]
 pub enum Token {
     Illegal(u8),
