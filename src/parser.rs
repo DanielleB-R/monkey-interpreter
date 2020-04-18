@@ -172,18 +172,23 @@ impl Parser {
     }
 
     fn parse_prefix(&mut self) -> Result<Expression, ParseError> {
-        match self.cur_token_type() {
-            TokenType::Ident => self.parse_identifier(),
-            TokenType::Int => self.parse_integer_literal(),
-            TokenType::Bang | TokenType::Minus => self.parse_prefix_expression(),
-            TokenType::True | TokenType::False => self.parse_boolean(),
-            TokenType::LParen => self.parse_grouped_expression(),
-            TokenType::If => self.parse_if_expression(),
-            TokenType::Function => self.parse_function_literal(),
-            TokenType::String => self.parse_string_literal(),
-            TokenType::LBracket => self.parse_array_literal(),
-            TokenType::LBrace => self.parse_hash_literal(),
-            token_type => Err(ParseError::MissingPrefixParseFunction { token_type }),
+        match self.take_token() {
+            token @ Token::Ident(_) => self.parse_identifier(token),
+            token @ Token::Int(_) => self.parse_integer_literal(token),
+            token @ Token::Bang | token @ Token::Minus => self.parse_prefix_expression(token),
+            token @ Token::True | token @ Token::False => self.parse_boolean(token),
+            Token::LParen => self.parse_grouped_expression(),
+            token @ Token::If => self.parse_if_expression(token),
+            token @ Token::Function => self.parse_function_literal(token),
+            token @ Token::String(_) => self.parse_string_literal(token),
+            token @ Token::LBracket => self.parse_array_literal(token),
+            token @ Token::LBrace => self.parse_hash_literal(token),
+            token => {
+                self.cur_token = Some(token);
+                Err(ParseError::MissingPrefixParseFunction {
+                    token_type: self.cur_token_type(),
+                })
+            }
         }
     }
 
@@ -203,13 +208,11 @@ impl Parser {
         }
     }
 
-    fn parse_identifier(&mut self) -> Result<Expression, ParseError> {
-        Ok(Expression::Identifier(self.take_token().into()))
+    fn parse_identifier(&self, token: Token) -> Result<Expression, ParseError> {
+        Ok(Expression::Identifier(token.into()))
     }
 
-    fn parse_integer_literal(&mut self) -> Result<Expression, ParseError> {
-        let token = self.take_token();
-
+    fn parse_integer_literal(&self, token: Token) -> Result<Expression, ParseError> {
         let value = token
             .literal()
             .parse()
@@ -223,8 +226,8 @@ impl Parser {
         }))
     }
 
-    fn parse_boolean(&mut self) -> Result<Expression, ParseError> {
-        Ok(Expression::Boolean(self.take_token().into()))
+    fn parse_boolean(&self, token: Token) -> Result<Expression, ParseError> {
+        Ok(Expression::Boolean(token.into()))
     }
 
     fn expect_peek(&mut self, expected: TokenType) -> Result<(), ParseError> {
@@ -239,8 +242,8 @@ impl Parser {
         Ok(())
     }
 
-    fn parse_prefix_expression(&mut self) -> Result<Expression, ParseError> {
-        let token = self.advance_token();
+    fn parse_prefix_expression(&mut self, token: Token) -> Result<Expression, ParseError> {
+        self.next_token();
         let right = self.parse_expression(Precedence::Prefix)?;
 
         Ok(Expression::Prefix(ast::PrefixExpression {
@@ -271,9 +274,7 @@ impl Parser {
         Ok(exp)
     }
 
-    fn parse_if_expression(&mut self) -> Result<Expression, ParseError> {
-        let token = self.take_token();
-
+    fn parse_if_expression(&mut self, token: Token) -> Result<Expression, ParseError> {
         self.expect_peek(TokenType::LParen)?;
 
         self.next_token();
@@ -318,9 +319,7 @@ impl Parser {
         ast::BlockStatement { token, statements }
     }
 
-    fn parse_function_literal(&mut self) -> Result<Expression, ParseError> {
-        let token = self.take_token();
-
+    fn parse_function_literal(&mut self, token: Token) -> Result<Expression, ParseError> {
         self.expect_peek(TokenType::LParen)?;
 
         let parameters = self.parse_function_parameters()?;
@@ -391,12 +390,11 @@ impl Parser {
         Ok(list)
     }
 
-    fn parse_string_literal(&mut self) -> Result<Expression, ParseError> {
-        Ok(Expression::String(self.take_token().into()))
+    fn parse_string_literal(&self, token: Token) -> Result<Expression, ParseError> {
+        Ok(Expression::String(token.into()))
     }
 
-    fn parse_array_literal(&mut self) -> Result<Expression, ParseError> {
-        let token = self.take_token();
+    fn parse_array_literal(&mut self, token: Token) -> Result<Expression, ParseError> {
         let elements = self.parse_expression_list(TokenType::RBracket)?;
         Ok(Expression::Array(ast::ArrayLiteral { token, elements }))
     }
@@ -414,8 +412,7 @@ impl Parser {
         }))
     }
 
-    fn parse_hash_literal(&mut self) -> Result<Expression, ParseError> {
-        let token = self.take_token();
+    fn parse_hash_literal(&mut self, token: Token) -> Result<Expression, ParseError> {
         let mut pairs = vec![];
 
         while !self.peek_token().is(TokenType::RBrace) {
