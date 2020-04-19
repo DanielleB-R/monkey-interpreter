@@ -113,8 +113,8 @@ impl Compiler {
                         &[symbol.index],
                     );
                 }
-                Statement::Return(ret_stmt) => {
-                    self.compile(ret_stmt.return_value.into())?;
+                Statement::Return(return_value) => {
+                    self.compile(return_value.into())?;
                     self.emit(Opcode::ReturnValue, &[]);
                 }
             },

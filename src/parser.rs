@@ -137,7 +137,7 @@ impl Parser {
 
         self.skip(TokenType::Semicolon);
 
-        Ok(ast::ReturnStatement { return_value }.into())
+        Ok(Statement::Return(return_value))
     }
 
     fn parse_expression_statement(&mut self) -> Result<Statement, ParseError> {
@@ -473,7 +473,7 @@ return foobar;
                 Expression::Identifier("foobar".into()),
             ]
             .into_iter()
-            .map(|return_value| Statement::Return(ast::ReturnStatement { return_value }))
+            .map(Statement::Return)
             .collect::<Vec<Statement>>()
         );
     }
