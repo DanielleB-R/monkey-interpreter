@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter};
 pub enum Statement {
     Let(LetStatement),
     Return(ReturnStatement),
-    Expr(ExpressionStatement),
+    Expr(Expression),
     Block(BlockStatement),
 }
 
@@ -32,15 +32,9 @@ impl From<ReturnStatement> for Statement {
     }
 }
 
-impl From<ExpressionStatement> for Statement {
-    fn from(stmt: ExpressionStatement) -> Self {
-        Self::Expr(stmt)
-    }
-}
-
 impl From<Expression> for Statement {
     fn from(expression: Expression) -> Self {
-        ExpressionStatement { expression }.into()
+        Self::Expr(expression)
     }
 }
 
@@ -64,17 +58,6 @@ pub struct ReturnStatement {
 impl Display for ReturnStatement {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "return {};", self.return_value)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ExpressionStatement {
-    pub expression: Expression,
-}
-
-impl Display for ExpressionStatement {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.expression)
     }
 }
 

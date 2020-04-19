@@ -91,8 +91,8 @@ impl Compiler {
                 }
             }
             Node::Statement(stmt) => match stmt {
-                Statement::Expr(e) => {
-                    self.compile(e.expression.into())?;
+                Statement::Expr(expr) => {
+                    self.compile(expr.into())?;
                     self.emit(Opcode::Pop, &[]);
                 }
                 Statement::Block(block) => {

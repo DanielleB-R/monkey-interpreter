@@ -14,7 +14,7 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
     match node {
         Node::Program(prog) => eval_program(prog, env),
         Node::Statement(s) => match s {
-            ast::Statement::Expr(stmt) => eval(stmt.expression.into(), env),
+            ast::Statement::Expr(expr) => eval(expr.into(), env),
             ast::Statement::Block(stmt) => eval_block_statement(stmt, env),
             ast::Statement::Return(stmt) => Ok(Object::ReturnValue(Box::new(eval(
                 stmt.return_value.into(),

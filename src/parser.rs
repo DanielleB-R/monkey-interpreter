@@ -145,10 +145,7 @@ impl Parser {
 
         self.skip(TokenType::Semicolon);
 
-        Ok(ast::ExpressionStatement {
-            expression: expression?,
-        }
-        .into())
+        Ok((expression?).into())
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
