@@ -86,9 +86,7 @@ impl Compiler {
     pub fn compile<T: Into<Node>>(&mut self, node: T) -> Result<(), CompileError> {
         match node.into() {
             Node::Program(p) => {
-                for stmt in p.statements {
-                    self.compile(stmt)?;
-                }
+                p.statements.into_iter().try_for_each(|s| self.compile(s))?;
             }
             Node::Statement(stmt) => match stmt {
                 Statement::Expr(expr) => {
@@ -96,9 +94,10 @@ impl Compiler {
                     self.emit(Opcode::Pop, &[]);
                 }
                 Statement::Block(block) => {
-                    for stmt in block.statements {
-                        self.compile(stmt)?;
-                    }
+                    block
+                        .statements
+                        .into_iter()
+                        .try_for_each(|s| self.compile(s))?;
                 }
                 Statement::Let(let_stmt) => {
                     self.compile(let_stmt.value)?;
@@ -108,7 +107,7 @@ impl Compiler {
                         match symbol.scope {
                             Scope::Global => Opcode::SetGlobal,
                             Scope::Local => Opcode::SetLocal,
-                            Scope::Builtin => panic!(),
+                            Scope::Builtin => panic!("define should never return a builtin"),
                         },
                         &[symbol.index],
                     );
@@ -182,9 +181,10 @@ impl Compiler {
                 }
                 Expression::Array(array) => {
                     let len = array.elements.len() as isize;
-                    for expr in array.elements {
-                        self.compile(expr)?;
-                    }
+                    array
+                        .elements
+                        .into_iter()
+                        .try_for_each(|expr| self.compile(expr))?;
                     self.emit(Opcode::Array, &[len]);
                 }
                 Expression::Hash(hash) => {
@@ -204,7 +204,7 @@ impl Compiler {
                         self.symbol_table.define(&param.value);
                     }
 
-                    self.compile(Statement::Block(f.body))?;
+                    self.compile(f.body)?;
 
                     if self.last_instruction_is(Opcode::Pop) {
                         self.replace_last_pop_with_return();
@@ -238,7 +238,7 @@ impl Compiler {
                         .emit(Opcode::JumpFalsy, &[9999])
                         .expect("Jump failed to emit");
 
-                    self.compile(Statement::Block(expr.consequence))?;
+                    self.compile(expr.consequence)?;
 
                     if self.last_instruction_is(Opcode::Pop) {
                         self.remove_last_pop();
@@ -251,7 +251,7 @@ impl Compiler {
                     self.change_operand(jump_falsy_pos, after_consequence_pos as isize);
                     match expr.alternative {
                         Some(alt) => {
-                            self.compile(Statement::Block(alt))?;
+                            self.compile(alt)?;
 
                             if self.last_instruction_is(Opcode::Pop) {
                                 self.remove_last_pop();

@@ -31,6 +31,12 @@ impl From<Expression> for Node {
     }
 }
 
+impl From<BlockStatement> for Node {
+    fn from(block: BlockStatement) -> Self {
+        Statement::Block(block).into()
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Program {
     pub statements: Vec<Statement>,
