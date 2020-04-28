@@ -278,12 +278,15 @@ impl Compiler {
     }
 
     fn current_instructions(&mut self) -> &mut Instructions {
-        &mut self.scopes[self.scope_index].instructions
+        &mut self.current_scope().instructions
+    }
+
+    fn current_scope(&mut self) -> &mut CompilationScope {
+        &mut self.scopes[self.scope_index]
     }
 
     pub fn emit(&mut self, op: Opcode, operands: &[isize]) -> Option<usize> {
-        let ins = code::make(op, operands)?;
-        let pos = self.add_instruction(ins);
+        let pos = self.add_instruction(code::make(op, operands)?);
 
         self.set_last_instruction(op, pos);
         Some(pos)
@@ -305,18 +308,18 @@ impl Compiler {
     }
 
     fn set_last_instruction(&mut self, opcode: Opcode, position: usize) {
-        let mut scope = &mut self.scopes[self.scope_index];
+        let mut scope = self.current_scope();
         scope.previous = scope.last;
         scope.last = EmittedInstruction { opcode, position };
     }
 
-    fn last_instruction_is(&self, op: Opcode) -> bool {
-        let scope = &self.scopes[self.scope_index];
+    fn last_instruction_is(&mut self, op: Opcode) -> bool {
+        let scope = self.current_scope();
         scope.instructions.len() != 0 && scope.last.opcode == op
     }
 
     fn remove_last_pop(&mut self) {
-        let mut scope = &mut self.scopes[self.scope_index];
+        let mut scope = self.current_scope();
         scope.instructions.truncate(scope.last.position);
         scope.last = scope.previous;
     }
@@ -336,7 +339,7 @@ impl Compiler {
     }
 
     fn replace_last_pop_with_return(&mut self) {
-        let mut scope = &mut self.scopes[self.scope_index];
+        let mut scope = self.current_scope();
         let last_pos = scope.last.position;
         scope
             .instructions
