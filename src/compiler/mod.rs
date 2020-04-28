@@ -83,25 +83,25 @@ impl Compiler {
         }
     }
 
-    pub fn compile(&mut self, node: Node) -> Result<(), CompileError> {
-        match node {
+    pub fn compile<T: Into<Node>>(&mut self, node: T) -> Result<(), CompileError> {
+        match node.into() {
             Node::Program(p) => {
                 for stmt in p.statements {
-                    self.compile(stmt.into())?;
+                    self.compile(stmt)?;
                 }
             }
             Node::Statement(stmt) => match stmt {
                 Statement::Expr(expr) => {
-                    self.compile(expr.into())?;
+                    self.compile(expr)?;
                     self.emit(Opcode::Pop, &[]);
                 }
                 Statement::Block(block) => {
                     for stmt in block.statements {
-                        self.compile(stmt.into())?;
+                        self.compile(stmt)?;
                     }
                 }
                 Statement::Let(let_stmt) => {
-                    self.compile(let_stmt.value.into())?;
+                    self.compile(let_stmt.value)?;
 
                     let symbol = self.symbol_table.define(&let_stmt.name.value);
                     self.emit(
@@ -114,7 +114,7 @@ impl Compiler {
                     );
                 }
                 Statement::Return(return_value) => {
-                    self.compile(return_value.into())?;
+                    self.compile(return_value)?;
                     self.emit(Opcode::ReturnValue, &[]);
                 }
             },
@@ -131,14 +131,14 @@ impl Compiler {
                 },
                 Expression::Infix(infix) => {
                     if infix.operator == Operator::LT {
-                        self.compile((*infix.right).into())?;
-                        self.compile((*infix.left).into())?;
+                        self.compile(*infix.right)?;
+                        self.compile(*infix.left)?;
                         self.emit(Opcode::GreaterThan, &[]);
                         return Ok(());
                     }
 
-                    self.compile((*infix.left).into())?;
-                    self.compile((*infix.right).into())?;
+                    self.compile(*infix.left)?;
+                    self.compile(*infix.right)?;
 
                     match infix.operator {
                         Operator::Plus => self.emit(Opcode::Add, &[]),
@@ -152,7 +152,7 @@ impl Compiler {
                     };
                 }
                 Expression::Prefix(prefix) => {
-                    self.compile((*prefix.right).into())?;
+                    self.compile(*prefix.right)?;
 
                     match prefix.operator {
                         Operator::Bang => self.emit(Opcode::Bang, &[]),
@@ -161,8 +161,8 @@ impl Compiler {
                     };
                 }
                 Expression::Index(ind) => {
-                    self.compile((*ind.left).into())?;
-                    self.compile((*ind.index).into())?;
+                    self.compile(*ind.left)?;
+                    self.compile(*ind.index)?;
                     self.emit(Opcode::Index, &[]);
                 }
                 Expression::IntegerLiteral(int) => {
@@ -183,15 +183,15 @@ impl Compiler {
                 Expression::Array(array) => {
                     let len = array.elements.len() as isize;
                     for expr in array.elements {
-                        self.compile(expr.into())?;
+                        self.compile(expr)?;
                     }
                     self.emit(Opcode::Array, &[len]);
                 }
                 Expression::Hash(hash) => {
                     let len = hash.pairs.len() * 2;
                     for (key, value) in hash.pairs {
-                        self.compile(key.into())?;
-                        self.compile(value.into())?;
+                        self.compile(key)?;
+                        self.compile(value)?;
                     }
 
                     self.emit(Opcode::Hash, &[len as isize]);
@@ -204,7 +204,7 @@ impl Compiler {
                         self.symbol_table.define(&param.value);
                     }
 
-                    self.compile(Statement::Block(f.body).into())?;
+                    self.compile(Statement::Block(f.body))?;
 
                     if self.last_instruction_is(Opcode::Pop) {
                         self.replace_last_pop_with_return();
@@ -222,23 +222,23 @@ impl Compiler {
                     self.emit(Opcode::Closure, &[const_index, 0]);
                 }
                 Expression::Call(c) => {
-                    self.compile((*c.function).into())?;
+                    self.compile(*c.function)?;
 
                     let arg_count = c.arguments.len();
                     for arg in c.arguments {
-                        self.compile(arg.into())?;
+                        self.compile(arg)?;
                     }
 
                     self.emit(Opcode::Call, &[arg_count as isize]);
                 }
                 Expression::If(expr) => {
-                    self.compile((*expr.condition).into())?;
+                    self.compile(*expr.condition)?;
 
                     let jump_falsy_pos = self
                         .emit(Opcode::JumpFalsy, &[9999])
                         .expect("Jump failed to emit");
 
-                    self.compile(Statement::Block(expr.consequence).into())?;
+                    self.compile(Statement::Block(expr.consequence))?;
 
                     if self.last_instruction_is(Opcode::Pop) {
                         self.remove_last_pop();
@@ -251,7 +251,7 @@ impl Compiler {
                     self.change_operand(jump_falsy_pos, after_consequence_pos as isize);
                     match expr.alternative {
                         Some(alt) => {
-                            self.compile(Statement::Block(alt).into())?;
+                            self.compile(Statement::Block(alt))?;
 
                             if self.last_instruction_is(Opcode::Pop) {
                                 self.remove_last_pop();

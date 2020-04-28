@@ -59,7 +59,7 @@ pub fn start() {
             }
             Ok(program) => {
                 let mut comp: Compiler = compiler_state.clone().into();
-                if comp.compile(program.into()).is_err() {
+                if comp.compile(program).is_err() {
                     println!("Compilation error!");
                     continue;
                 }

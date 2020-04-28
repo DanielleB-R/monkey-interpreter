@@ -726,7 +726,7 @@ fn run_compiler_tests(cases: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
         let program = parse(input);
 
         let mut compiler = Compiler::default();
-        compiler.compile(program.into()).unwrap();
+        compiler.compile(program).unwrap();
 
         let bytecode = compiler.bytecode();
         test_instructions(instructions, bytecode.instructions);

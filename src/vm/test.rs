@@ -438,7 +438,7 @@ fn run_vm_tests(tests: Vec<(&str, Object)>) {
         let program = parse(input);
 
         let mut comp = Compiler::default();
-        comp.compile(program.into()).unwrap();
+        comp.compile(program).unwrap();
 
         let mut vm = VM::new(comp.bytecode());
         vm.run().unwrap();
@@ -452,7 +452,7 @@ fn run_vm_error_tests(tests: Vec<(&str, VMError)>) {
         let program = parse(input);
 
         let mut comp = Compiler::default();
-        comp.compile(program.into()).unwrap();
+        comp.compile(program).unwrap();
 
         let mut vm = VM::new(comp.bytecode());
         assert_eq!(vm.run().unwrap_err(), err);
