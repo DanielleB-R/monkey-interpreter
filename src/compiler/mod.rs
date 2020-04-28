@@ -347,13 +347,13 @@ impl Compiler {
     fn enter_scope(&mut self) {
         self.scopes.push(Default::default());
         self.scope_index += 1;
-        self.symbol_table = symbol::SymbolTable::enclosing(self.symbol_table.clone());
+        self.symbol_table = symbol::SymbolTable::enclosing(std::mem::take(&mut self.symbol_table));
     }
 
     fn leave_scope(&mut self) -> Instructions {
         let scope = self.scopes.pop().unwrap();
         self.scope_index -= 1;
-        self.symbol_table = self.symbol_table.clone().unenclose();
+        self.symbol_table = std::mem::take(&mut self.symbol_table).unenclose();
         scope.instructions
     }
 
