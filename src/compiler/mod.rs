@@ -121,7 +121,7 @@ impl Compiler {
             Node::Expression(expr) => match expr {
                 Expression::Identifier(ident) => match self.symbol_table.resolve(&ident.value) {
                     Some(symbol) => {
-                        self.emit(Self::load_symbol_instruction(symbol), &[symbol.index]);
+                        self.load_symbol(symbol);
                     }
                     None => {
                         return Err(CompileError::UndefinedIdentifier {
@@ -221,7 +221,7 @@ impl Compiler {
                     let instructions = self.leave_scope();
 
                     for (_, symbol) in free_symbols {
-                        self.emit(Self::load_symbol_instruction(symbol), &[symbol.index]);
+                        self.load_symbol(symbol);
                     }
 
                     let const_index = self.add_constant(
@@ -307,12 +307,12 @@ impl Compiler {
         pos
     }
 
-    fn load_symbol_instruction(symbol: symbol::Symbol) -> Opcode {
+    fn load_symbol(&mut self, symbol: symbol::Symbol) -> Option<usize> {
         match symbol.scope {
-            Scope::Global => Opcode::GetGlobal,
-            Scope::Local => Opcode::GetLocal,
-            Scope::Builtin => Opcode::GetBuiltin,
-            Scope::Free => Opcode::GetFree,
+            Scope::Global => self.emit(Opcode::GetGlobal, &[symbol.index]),
+            Scope::Local => self.emit(Opcode::GetLocal, &[symbol.index]),
+            Scope::Builtin => self.emit(Opcode::GetBuiltin, &[symbol.index]),
+            Scope::Free => self.emit(Opcode::GetFree, &[symbol.index]),
         }
     }
 
