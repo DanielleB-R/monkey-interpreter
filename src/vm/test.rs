@@ -528,6 +528,26 @@ fn test_closures() {
     run_vm_tests(cases);
 }
 
+#[test]
+fn test_recursive_fibonacci() {
+    let cases = vec![(
+        "let fibonacci = fn(x) {
+               if (x == 0) {
+                   return 0;
+               } else {
+                   if (x == 1) {
+                       return 1;
+                   } else {
+                       fibonacci(x - 1) + fibonacci(x - 2);
+} }
+           };
+           fibonacci(15);",
+        610.into(),
+    )];
+
+    run_vm_tests(cases);
+}
+
 fn parse(input: &str) -> ast::Program {
     Parser::new(Lexer::new(input.to_owned()))
         .parse_program()
