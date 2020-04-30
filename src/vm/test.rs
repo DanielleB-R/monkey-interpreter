@@ -427,6 +427,73 @@ fn test_builtin_function_errors() {
     run_vm_error_tests(cases);
 }
 
+#[test]
+fn test_closures() {
+    let cases = vec![
+        (
+            "let newClosure = fn(a) {
+               fn() { a; };
+           };
+           let closure = newClosure(99);
+           closure();",
+            99.into(),
+        ),
+        (
+            "let newAdder = fn(a, b) {
+               fn(c) { a + b + c };
+           };
+           let adder = newAdder(1, 2);
+           adder(8);",
+            11.into(),
+        ),
+        (
+            "let newAdder = fn(a, b) {
+               let c = a + b;
+               fn(d) { c + d };
+           };
+           let adder = newAdder(1, 2);
+           adder(8);",
+            11.into(),
+        ),
+        (
+            "let newAdderOuter = fn(a, b) {
+               let c = a + b;
+               fn(d) {
+                   let e = d + c;
+                   fn(f) { e + f; };
+               };
+           };
+           let newAdderInner = newAdderOuter(1, 2)
+           let adder = newAdderInner(3);
+           adder(8);",
+            14.into(),
+        ),
+        (
+            "let a = 1;
+           let newAdderOuter = fn(b) {
+               fn(c) {
+                   fn(d) { a + b + c + d };
+}; };
+           let newAdderInner = newAdderOuter(2)
+           let adder = newAdderInner(3);
+           adder(8);",
+            14.into(),
+        ),
+        (
+            "let newClosure = fn(a, b) {
+               let one = fn() { a; };
+               let two = fn() { b; };
+               fn() { one() + two(); };
+           };
+           let closure = newClosure(9, 90);
+           closure();",
+            99.into(),
+        ),
+    ];
+
+    run_vm_tests(cases);
+}
+
 fn parse(input: &str) -> ast::Program {
     Parser::new(Lexer::new(input.to_owned()))
         .parse_program()

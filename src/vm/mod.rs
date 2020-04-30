@@ -170,6 +170,12 @@ impl VM {
                     let builtin = BUILTINS[index].1.clone();
                     self.push(builtin)?;
                 }
+                Opcode::GetFree => {
+                    let free_index = self.get_u8_arg(ip) as usize;
+
+                    let value = self.current_frame().get_free(free_index);
+                    self.push(value)?;
+                }
                 Opcode::Array => {
                     let len = self.get_u16_arg(ip) as usize;
 
@@ -191,9 +197,9 @@ impl VM {
                 }
                 Opcode::Closure => {
                     let const_index = self.get_u16_arg(ip) as usize;
-                    let _ = self.get_u8_arg(ip + 2);
+                    let num_free = self.get_u8_arg(ip + 2) as usize;
 
-                    self.push_closure(const_index)?;
+                    self.push_closure(const_index, num_free)?;
                 }
                 Opcode::ReturnValue => {
                     let return_value = self.pop();
@@ -260,13 +266,21 @@ impl VM {
         self.push(f(args)?)
     }
 
-    fn push_closure(&mut self, const_index: usize) -> Result<(), VMError> {
+    fn push_closure(&mut self, const_index: usize, num_free: usize) -> Result<(), VMError> {
         let constant = &self.constants[const_index];
-        let closure = match constant {
-            Object::CompiledFunction(cf) => Object::Closure(cf.clone().into()),
+        let mut closure: Closure = match constant {
+            Object::CompiledFunction(cf) => cf.clone().into(),
             _ => return Err(VMError::NotAFunction),
         };
-        self.push(closure)
+
+        for i in 0..num_free {
+            closure
+                .free
+                .push(self.stack[self.sp - num_free + i].clone());
+        }
+        self.sp -= num_free;
+
+        self.push(closure.into())
     }
 
     fn execute_comparison(&mut self, op: Opcode) -> Result<(), VMError> {

@@ -100,6 +100,12 @@ impl From<CompiledFunction> for Object {
     }
 }
 
+impl From<Closure> for Object {
+    fn from(f: Closure) -> Self {
+        Self::Closure(f)
+    }
+}
+
 impl From<Instructions> for Object {
     fn from(i: Instructions) -> Self {
         CompiledFunction {

@@ -1,5 +1,5 @@
 use crate::code::Instructions;
-use crate::object::{Closure, CompiledFunction};
+use crate::object::{Closure, CompiledFunction, Object};
 
 #[derive(Debug, Clone)]
 pub struct Frame {
@@ -31,5 +31,9 @@ impl Frame {
 
     pub fn instructions(&self) -> &Instructions {
         &self.func.func.instructions
+    }
+
+    pub fn get_free(&self, index: usize) -> Object {
+        self.func.free[index].clone()
     }
 }
