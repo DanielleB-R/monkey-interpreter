@@ -428,7 +428,7 @@ impl VM {
         obj
     }
 
-    pub(crate) fn last_popped_stack_element(&self) -> &Object {
+    pub fn last_popped_stack_element(&self) -> &Object {
         &self.stack[self.sp]
     }
 
