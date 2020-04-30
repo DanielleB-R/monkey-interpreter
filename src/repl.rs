@@ -27,7 +27,7 @@ pub fn start_interpreted() {
                 }
             }
             Ok(program) => {
-                let output = evaluator::eval(program.into(), &mut env);
+                let output = evaluator::eval(program, &mut env);
                 match output {
                     Ok(val) => println!("{}", val),
                     Err(err) => println!("ERROR: {}", err),

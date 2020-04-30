@@ -10,18 +10,17 @@ lazy_static! {
     pub static ref BUILTINS: HashMap<String, Object> = builtins::BUILTINS.iter().cloned().collect();
 }
 
-pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
-    match node {
+pub fn eval<T: Into<Node>>(node: T, env: &mut Environment) -> Result<Object> {
+    match node.into() {
         Node::Program(prog) => eval_program(prog, env),
         Node::Statement(s) => match s {
-            ast::Statement::Expr(expr) => eval(expr.into(), env),
+            ast::Statement::Expr(expr) => eval(expr, env),
             ast::Statement::Block(stmt) => eval_block_statement(stmt, env),
-            ast::Statement::Return(return_value) => Ok(Object::ReturnValue(Box::new(eval(
-                return_value.into(),
-                env,
-            )?))),
+            ast::Statement::Return(return_value) => {
+                Ok(Object::ReturnValue(Box::new(eval(return_value, env)?)))
+            }
             ast::Statement::Let(stmt) => {
-                let val = eval(stmt.value.into(), env)?;
+                let val = eval(stmt.value, env)?;
                 env.set(&stmt.name.value, val);
 
                 Ok(Object::Null)
@@ -31,12 +30,12 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
             ast::Expression::IntegerLiteral(n) => Ok(n.into()),
             ast::Expression::Boolean(b) => Ok(b.value.into()),
             ast::Expression::Prefix(prefix) => {
-                let right = eval((*prefix.right).into(), env)?;
+                let right = eval(*prefix.right, env)?;
                 eval_prefix_expression(prefix.operator, right)
             }
             ast::Expression::Infix(infix) => {
-                let left = eval((*infix.left).into(), env)?;
-                let right = eval((*infix.right).into(), env)?;
+                let left = eval(*infix.left, env)?;
+                let right = eval(*infix.right, env)?;
                 eval_infix_expression(infix.operator, left, right)
             }
             ast::Expression::If(if_expression) => eval_if_expression(if_expression, env),
@@ -52,7 +51,7 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
                 env: env.clone(),
             })),
             ast::Expression::Call(call) => {
-                let function = eval((*call.function).into(), env)?;
+                let function = eval(*call.function, env)?;
                 let args = eval_expressions(call.arguments, env)?;
                 apply_function(function, args)
             }
@@ -60,8 +59,8 @@ pub fn eval(node: Node, env: &mut Environment) -> Result<Object> {
             ast::Expression::Array(a) => eval_expressions(a.elements, env).map(Object::Array),
             ast::Expression::Hash(h) => eval_hash_literal(h.pairs, env),
             ast::Expression::Index(i) => {
-                let left = eval((*i.left).into(), env)?;
-                let index = eval((*i.index).into(), env)?;
+                let left = eval(*i.left, env)?;
+                let index = eval(*i.index, env)?;
                 eval_index_expression(left, index)
             }
             _ => Ok(Object::Null),
@@ -73,7 +72,7 @@ fn eval_program(program: ast::Program, env: &mut Environment) -> Result<Object> 
     let mut result = Object::default();
 
     for stmt in program.statements.into_iter() {
-        result = eval(stmt.into(), env)?;
+        result = eval(stmt, env)?;
 
         if let Object::ReturnValue(obj) = result {
             return Ok(*obj);
@@ -87,7 +86,7 @@ fn eval_block_statement(block: ast::BlockStatement, env: &mut Environment) -> Re
     let mut result = Object::default();
 
     for stmt in block.statements.into_iter() {
-        result = eval(stmt.into(), env)?;
+        result = eval(stmt, env)?;
 
         if result.is_return_value() {
             return Ok(result);
@@ -101,7 +100,7 @@ fn eval_expressions(exprs: Vec<ast::Expression>, env: &mut Environment) -> Resul
     let mut result = vec![];
 
     for expr in exprs.into_iter() {
-        result.push(eval(expr.into(), env)?)
+        result.push(eval(expr, env)?)
     }
     Ok(result)
 }
@@ -177,12 +176,12 @@ fn eval_string_infix_expression(
 }
 
 fn eval_if_expression(if_expression: ast::IfExpression, env: &mut Environment) -> Result<Object> {
-    let condition = eval((*if_expression.condition).into(), env)?;
+    let condition = eval(*if_expression.condition, env)?;
 
     if condition.truth_value() {
-        eval(ast::Statement::Block(if_expression.consequence).into(), env)
+        eval(if_expression.consequence, env)
     } else if let Some(alt) = if_expression.alternative {
-        eval(ast::Statement::Block(alt).into(), env)
+        eval(alt, env)
     } else {
         Ok(Object::Null)
     }
@@ -193,7 +192,7 @@ fn apply_function(func: Object, args: Vec<Object>) -> Result<Object> {
         Object::Function(f) => {
             let mut env = extend_function_env(&f, args);
 
-            eval(ast::Statement::Block(f.body).into(), &mut env).map(Object::unwrap_return)
+            eval(f.body, &mut env).map(Object::unwrap_return)
         }
         Object::Builtin(f) => f(args),
         obj => Err(EvalError::NotAFunction {
@@ -245,8 +244,8 @@ fn eval_hash_literal(
     let mut map = HashMap::new();
 
     for (key_expr, val_expr) in hash.into_iter() {
-        let key = eval(key_expr.into(), env)?;
-        let value = eval(val_expr.into(), env)?;
+        let key = eval(key_expr, env)?;
+        let value = eval(val_expr, env)?;
 
         map.insert(key.try_into()?, value);
     }
@@ -686,8 +685,7 @@ addTwo(2);
         eval(
             Parser::new(Lexer::new(input.to_owned()))
                 .parse_program()
-                .expect("Parse errors found")
-                .into(),
+                .expect("Parse errors found"),
             &mut env,
         )
     }

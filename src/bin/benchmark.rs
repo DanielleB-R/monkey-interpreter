@@ -38,7 +38,7 @@ fn main() {
     } else {
         let mut env = Environment::new();
         start = Instant::now();
-        result = eval(program.into(), &mut env).unwrap();
+        result = eval(program, &mut env).unwrap();
         duration = start.elapsed();
     }
 
