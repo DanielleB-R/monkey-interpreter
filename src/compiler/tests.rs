@@ -859,6 +859,87 @@ fn test_closures() {
     run_compiler_tests(cases);
 }
 
+#[test]
+fn test_recursive_functions() {
+    let cases = vec![
+        (
+            "let countDown = fn(x) { countDown(x - 1); };
+             countDown(1);",
+            vec![
+                1.into(),
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        make_single(Opcode::CurrentClosure),
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        make_constant(0),
+                        make_single(Opcode::Sub),
+                        code::make(Opcode::Call, &[1]).unwrap(),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    1,
+                    1,
+                )
+                .into(),
+                1.into(),
+            ],
+            vec![
+                code::make(Opcode::Closure, &[1, 0]).unwrap(),
+                code::make(Opcode::SetGlobal, &[0]).unwrap(),
+                code::make(Opcode::GetGlobal, &[0]).unwrap(),
+                make_constant(2),
+                code::make(Opcode::Call, &[1]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
+        ),
+        (
+            "let wrapper = fn() {
+                   let countDown = fn(x) { countDown(x - 1); };
+                   countDown(1);
+};
+wrapper();",
+            vec![
+                1.into(),
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        make_single(Opcode::CurrentClosure),
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        make_constant(0),
+                        make_single(Opcode::Sub),
+                        code::make(Opcode::Call, &[1]).unwrap(),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    1,
+                    1,
+                )
+                .into(),
+                1.into(),
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        code::make(Opcode::Closure, &[1, 0]).unwrap(),
+                        code::make(Opcode::SetLocal, &[0]).unwrap(),
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        make_constant(2),
+                        code::make(Opcode::Call, &[1]).unwrap(),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    1,
+                    0,
+                )
+                .into(),
+            ],
+            vec![
+                code::make(Opcode::Closure, &[3, 0]).unwrap(),
+                code::make(Opcode::SetGlobal, &[0]).unwrap(),
+                code::make(Opcode::GetGlobal, &[0]).unwrap(),
+                code::make(Opcode::Call, &[0]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
+        ),
+    ];
+
+    run_compiler_tests(cases);
+}
+
 fn run_compiler_tests(cases: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
     for (input, constants, instructions) in cases.into_iter() {
         let program = parse(input);

@@ -119,11 +119,15 @@ impl Parser {
     fn parse_let_statement(&mut self) -> Result<Statement, ParseError> {
         self.expect_peek(TokenType::Ident)?;
 
-        let name = self.take_token().into();
+        let name: ast::Identifier = self.take_token().into();
         self.expect_peek(TokenType::Assign)?;
         self.next_token();
 
-        let value = self.parse_expression(Precedence::Lowest)?;
+        let mut value = self.parse_expression(Precedence::Lowest)?;
+
+        if let Expression::Function(f) = &mut value {
+            f.name = Some(name.value.clone());
+        }
 
         self.skip(TokenType::Semicolon);
 
@@ -312,6 +316,7 @@ impl Parser {
         Ok(Expression::Function(ast::FunctionLiteral {
             parameters,
             body,
+            name: None,
         }))
     }
 
@@ -819,7 +824,8 @@ return foobar;
                         right: Box::new(Expression::Identifier("y".into())),
                     })
                     .into()]
-                }
+                },
+                name: None,
             })
             .into()]
         );
@@ -842,7 +848,8 @@ return foobar;
                 program.statements,
                 vec![Expression::Function(ast::FunctionLiteral {
                     parameters,
-                    body: ast::BlockStatement { statements: vec![] }
+                    body: ast::BlockStatement { statements: vec![] },
+                    name: None,
                 })
                 .into()]
             );
@@ -1003,6 +1010,27 @@ return foobar;
         assert_eq!(
             program.statements,
             vec![Expression::Hash(vec![].into()).into()]
+        );
+    }
+
+    #[test]
+    fn test_function_literal_with_name() {
+        let input = "let myFunction = fn() { }".to_owned();
+
+        let program = Parser::new(Lexer::new(input))
+            .parse_program()
+            .expect("Parse errors found");
+
+        assert_eq!(
+            program.statements,
+            vec![Statement::Let(ast::LetStatement {
+                name: "myFunction".into(),
+                value: Expression::Function(ast::FunctionLiteral {
+                    body: ast::BlockStatement { statements: vec![] },
+                    parameters: vec![],
+                    name: Some("myFunction".to_owned()),
+                })
+            })],
         );
     }
 }

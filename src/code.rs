@@ -47,6 +47,7 @@ pub enum Opcode {
     Call,
     ReturnValue,
     Return,
+    CurrentClosure,
 
     Pop,
     Maximum,
@@ -90,6 +91,7 @@ impl Opcode {
             Self::SetLocal => Some(&[1]),
             Self::GetFree => Some(&[1]),
             Self::Call => Some(&[1]),
+            Self::CurrentClosure => NO_ARGS,
             Self::ReturnValue => NO_ARGS,
             Self::Return => NO_ARGS,
             Self::Maximum => None,

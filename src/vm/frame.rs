@@ -3,7 +3,7 @@ use crate::object::{Closure, CompiledFunction, Object};
 
 #[derive(Debug, Clone)]
 pub struct Frame {
-    func: Closure,
+    pub func: Closure,
     pub ip: isize,
     pub base_pointer: isize,
 }

@@ -100,15 +100,15 @@ impl Compiler {
                         .try_for_each(|s| self.compile(s))?;
                 }
                 Statement::Let(let_stmt) => {
+                    let symbol = self.symbol_table.define(&let_stmt.name.value);
+
                     self.compile(let_stmt.value)?;
 
-                    let symbol = self.symbol_table.define(&let_stmt.name.value);
                     self.emit(
                         match symbol.scope {
                             Scope::Global => Opcode::SetGlobal,
                             Scope::Local => Opcode::SetLocal,
-                            Scope::Builtin => panic!("define should never return a builtin"),
-                            Scope::Free => panic!("define should never return a free var"),
+                            _ => panic!("define should only return globals and locals"),
                         },
                         &[symbol.index],
                     );
@@ -199,6 +199,9 @@ impl Compiler {
                 }
                 Expression::Function(f) => {
                     self.enter_scope();
+                    if let Some(name) = &f.name {
+                        self.symbol_table.define_function_name(name);
+                    }
 
                     let num_params = f.parameters.len();
                     for param in f.parameters {
@@ -313,6 +316,7 @@ impl Compiler {
             Scope::Local => self.emit(Opcode::GetLocal, &[symbol.index]),
             Scope::Builtin => self.emit(Opcode::GetBuiltin, &[symbol.index]),
             Scope::Free => self.emit(Opcode::GetFree, &[symbol.index]),
+            Scope::Function => self.emit(Opcode::CurrentClosure, &[]),
         }
     }
 

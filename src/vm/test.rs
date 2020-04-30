@@ -489,6 +489,40 @@ fn test_closures() {
            closure();",
             99.into(),
         ),
+        (
+            "let countDown = fn(x) {
+               if (x == 0) {
+                   return 0;
+               } else {
+                   countDown(x - 1);
+               }
+           };
+           countDown(1);",
+            0.into(),
+        ),
+        (
+            "let countDown = fn(x) {
+               if (x == 0) { return 0; } else { countDown(x - 1); }
+           };
+           let wrapper = fn() {
+               countDown(1);
+           };
+           wrapper();",
+            0.into(),
+        ),
+        (
+            "let wrapper = fn() {
+               let countDown = fn(x) {
+                   if (x == 0) {
+                       return 0;
+                   } else {
+                       countDown(x - 1);
+} };
+               countDown(1);
+           };
+           wrapper();",
+            0.into(),
+        ),
     ];
 
     run_vm_tests(cases);
@@ -506,8 +540,12 @@ fn run_vm_tests(tests: Vec<(&str, Object)>) {
 
         let mut comp = Compiler::default();
         comp.compile(program).unwrap();
+        let bytecode = comp.bytecode();
+        // for (n, constant) in bytecode.constants.iter().enumerate() {
+        //     println!("CONSTANT {} {}", n, constant);
+        // }
 
-        let mut vm = VM::new(comp.bytecode());
+        let mut vm = VM::new(bytecode);
         vm.run().unwrap();
 
         assert_eq!(vm.last_popped_stack_element(), &output);

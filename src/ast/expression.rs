@@ -185,6 +185,7 @@ impl Display for IfExpression {
 pub struct FunctionLiteral {
     pub parameters: Vec<Identifier>,
     pub body: BlockStatement,
+    pub name: Option<String>,
 }
 
 impl Display for FunctionLiteral {
@@ -192,7 +193,18 @@ impl Display for FunctionLiteral {
         let identifier_names: Vec<String> =
             self.parameters.iter().map(Identifier::to_string).collect();
 
-        write!(f, "fn({}) {}", identifier_names.join(", "), self.body)
+        let preamble = match &self.name {
+            Some(name) => format!("fn<{}>", name),
+            None => "fn".to_owned(),
+        };
+
+        write!(
+            f,
+            "{}({}) {}",
+            preamble,
+            identifier_names.join(", "),
+            self.body
+        )
     }
 }
 

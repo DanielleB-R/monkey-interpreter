@@ -215,6 +215,10 @@ impl VM {
 
                     self.push(Object::Null)?;
                 }
+                Opcode::CurrentClosure => {
+                    let closure = self.current_frame().func.clone().into();
+                    self.push(closure)?;
+                }
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
                 _ => {
                     println!("unimplemented");

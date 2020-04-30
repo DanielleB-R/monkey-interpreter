@@ -7,6 +7,7 @@ pub enum Scope {
     Global,
     Local,
     Free,
+    Function,
 }
 
 impl fmt::Display for Scope {
@@ -75,6 +76,15 @@ impl SymbolTable {
         };
         self.store.insert(name.to_owned(), free_symbol);
         free_symbol
+    }
+
+    pub fn define_function_name(&mut self, name: &str) -> Symbol {
+        let symbol = Symbol {
+            scope: Scope::Function,
+            index: 0,
+        };
+        self.store.insert(name.to_owned(), symbol);
+        symbol
     }
 
     pub fn resolve(&mut self, name: &str) -> Option<Symbol> {
@@ -499,5 +509,34 @@ mod test {
                 assert_eq!(table.resolve(name), None);
             }
         }
+    }
+
+    #[test]
+    fn test_define_and_resolve_function_name() {
+        let mut global = Box::new(SymbolTable::default());
+        global.define_function_name("a");
+
+        assert_eq!(
+            global.resolve("a"),
+            Some(Symbol {
+                scope: Scope::Function,
+                index: 0
+            })
+        );
+    }
+
+    #[test]
+    fn test_shadowing_function_name() {
+        let mut global = Box::new(SymbolTable::default());
+        global.define_function_name("a");
+        global.define("a");
+
+        assert_eq!(
+            global.resolve("a"),
+            Some(Symbol {
+                scope: Scope::Global,
+                index: 0
+            })
+        );
     }
 }
