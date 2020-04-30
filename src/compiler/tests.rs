@@ -721,6 +721,161 @@ push([], 1);",
     run_compiler_tests(cases)
 }
 
+#[test]
+fn test_closures() {
+    let cases = vec![
+        (
+            "fn(a) {
+                   fn(b) {
+a+b }
+}",
+            vec![
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        code::make(Opcode::GetFree, &[0]).unwrap(),
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        make_single(Opcode::Add),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    0,
+                    0,
+                )
+                .into(),
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        code::make(Opcode::Closure, &[0, 1]).unwrap(),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    0,
+                    0,
+                )
+                .into(),
+            ],
+            vec![
+                code::make(Opcode::Closure, &[1, 0]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
+        ),
+        (
+            "fn(a) {
+                   fn(b) {
+fn(c) { a+b+c
+}
+}
+}",
+            vec![
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        code::make(Opcode::GetFree, &[0]).unwrap(),
+                        code::make(Opcode::GetFree, &[1]).unwrap(),
+                        make_single(Opcode::Add),
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        make_single(Opcode::Add),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    0,
+                    0,
+                )
+                .into(),
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        code::make(Opcode::GetFree, &[0]).unwrap(),
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        code::make(Opcode::Closure, &[0, 2]).unwrap(),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    0,
+                    0,
+                )
+                .into(),
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        code::make(Opcode::Closure, &[1, 1]).unwrap(),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    0,
+                    0,
+                )
+                .into(),
+            ],
+            vec![
+                code::make(Opcode::Closure, &[2, 0]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
+        ),
+        (
+            "let global = 55;
+               fn() {
+                   let a = 66;
+                   fn() {
+                       let b = 77;
+fn() {
+    let c = 88;
+    global + a + b + c;
+}
+} }",
+            vec![
+                55.into(),
+                66.into(),
+                77.into(),
+                88.into(),
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        make_constant(3),
+                        code::make(Opcode::SetLocal, &[0]).unwrap(),
+                        code::make(Opcode::GetGlobal, &[0]).unwrap(),
+                        code::make(Opcode::GetFree, &[0]).unwrap(),
+                        make_single(Opcode::Add),
+                        code::make(Opcode::GetFree, &[1]).unwrap(),
+                        make_single(Opcode::Add),
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        make_single(Opcode::Add),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    0,
+                    0,
+                )
+                .into(),
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        make_constant(2),
+                        code::make(Opcode::SetLocal, &[0]).unwrap(),
+                        code::make(Opcode::GetFree, &[0]).unwrap(),
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        code::make(Opcode::Closure, &[4, 2]).unwrap(),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    0,
+                    0,
+                )
+                .into(),
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        make_constant(1),
+                        code::make(Opcode::SetLocal, &[0]).unwrap(),
+                        code::make(Opcode::GetLocal, &[0]).unwrap(),
+                        code::make(Opcode::Closure, &[5, 1]).unwrap(),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    0,
+                    0,
+                )
+                .into(),
+            ],
+            vec![
+                make_constant(0),
+                code::make(Opcode::SetGlobal, &[0]).unwrap(),
+                code::make(Opcode::Closure, &[6, 0]).unwrap(),
+                make_single(Opcode::Pop),
+            ],
+        ),
+    ];
+
+    run_compiler_tests(cases);
+}
+
 fn run_compiler_tests(cases: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
     for (input, constants, instructions) in cases.into_iter() {
         let program = parse(input);

@@ -42,6 +42,8 @@ pub enum Opcode {
     GetLocal,
     SetLocal,
 
+    GetFree,
+
     Call,
     ReturnValue,
     Return,
@@ -86,6 +88,7 @@ impl Opcode {
             Self::GetBuiltin => Some(&[1]),
             Self::GetLocal => Some(&[1]),
             Self::SetLocal => Some(&[1]),
+            Self::GetFree => Some(&[1]),
             Self::Call => Some(&[1]),
             Self::ReturnValue => NO_ARGS,
             Self::Return => NO_ARGS,

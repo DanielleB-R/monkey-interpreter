@@ -6,6 +6,7 @@ pub enum Scope {
     Builtin,
     Global,
     Local,
+    Free,
 }
 
 impl fmt::Display for Scope {
@@ -25,6 +26,7 @@ pub struct SymbolTable {
     pub outer: Option<Box<SymbolTable>>,
     store: HashMap<String, Symbol>,
     pub num_definitions: isize,
+    pub free_symbols: Vec<(String, Symbol)>,
 }
 
 impl SymbolTable {
@@ -33,6 +35,7 @@ impl SymbolTable {
             outer: Some(outer),
             store: Default::default(),
             num_definitions: 0,
+            free_symbols: Default::default(),
         })
     }
 
@@ -63,10 +66,26 @@ impl SymbolTable {
         symbol
     }
 
-    pub fn resolve(&self, name: &str) -> Option<Symbol> {
-        self.store.get(name).cloned().or_else(|| match &self.outer {
-            Some(o) => o.resolve(name),
-            None => None,
+    fn define_free(&mut self, name: &str, original: Symbol) -> Symbol {
+        self.free_symbols.push((name.to_owned(), original));
+
+        let free_symbol = Symbol {
+            scope: Scope::Free,
+            index: (self.free_symbols.len() - 1) as isize,
+        };
+        self.store.insert(name.to_owned(), free_symbol);
+        free_symbol
+    }
+
+    pub fn resolve(&mut self, name: &str) -> Option<Symbol> {
+        self.store.get(name).cloned().or_else(|| {
+            self.outer.as_mut()?.resolve(name).map(|outer_sym| {
+                if outer_sym.scope == Scope::Global || outer_sym.scope == Scope::Builtin {
+                    outer_sym
+                } else {
+                    self.define_free(name, outer_sym)
+                }
+            })
         })
     }
 }
@@ -247,7 +266,7 @@ mod test {
             ),
         ];
 
-        for (table, expected) in cases {
+        for (mut table, expected) in cases {
             for (name, symbol) in expected {
                 assert_eq!(table.resolve(name), Some(symbol));
             }
@@ -263,7 +282,7 @@ mod test {
         global.define_builtin(2, "e");
         global.define_builtin(3, "f");
 
-        fn test_resolve_builtins(table: &SymbolTable) {
+        fn test_resolve_builtins(table: &mut SymbolTable) {
             assert_eq!(
                 table.resolve("a").unwrap(),
                 Symbol {
@@ -294,10 +313,191 @@ mod test {
             );
         };
 
-        test_resolve_builtins(&global);
-        let first_local = SymbolTable::enclosing(global);
-        test_resolve_builtins(&first_local);
-        let second_local = SymbolTable::enclosing(first_local);
-        test_resolve_builtins(&second_local);
+        test_resolve_builtins(&mut global);
+        let mut first_local = SymbolTable::enclosing(global);
+        test_resolve_builtins(&mut first_local);
+        let mut second_local = SymbolTable::enclosing(first_local);
+        test_resolve_builtins(&mut second_local);
+    }
+
+    #[test]
+    fn test_resolve_free() {
+        let mut global = Box::new(SymbolTable::default());
+        global.define("a");
+        global.define("b");
+
+        let mut first_local = SymbolTable::enclosing(global);
+        first_local.define("c");
+        first_local.define("d");
+        let first_local_saved = first_local.clone();
+
+        let mut second_local = SymbolTable::enclosing(first_local);
+        second_local.define("e");
+        second_local.define("f");
+
+        let tests = vec![
+            (
+                first_local_saved,
+                vec![
+                    (
+                        "a",
+                        Symbol {
+                            scope: Scope::Global,
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "b",
+                        Symbol {
+                            scope: Scope::Global,
+                            index: 1,
+                        },
+                    ),
+                    (
+                        "c",
+                        Symbol {
+                            scope: Scope::Local,
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "d",
+                        Symbol {
+                            scope: Scope::Local,
+                            index: 1,
+                        },
+                    ),
+                ],
+                vec![],
+            ),
+            (
+                second_local,
+                vec![
+                    (
+                        "a",
+                        Symbol {
+                            scope: Scope::Global,
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "b",
+                        Symbol {
+                            scope: Scope::Global,
+                            index: 1,
+                        },
+                    ),
+                    (
+                        "c",
+                        Symbol {
+                            scope: Scope::Free,
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "d",
+                        Symbol {
+                            scope: Scope::Free,
+                            index: 1,
+                        },
+                    ),
+                    (
+                        "e",
+                        Symbol {
+                            scope: Scope::Local,
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "f",
+                        Symbol {
+                            scope: Scope::Local,
+                            index: 1,
+                        },
+                    ),
+                ],
+                vec![
+                    (
+                        "c".to_owned(),
+                        Symbol {
+                            scope: Scope::Local,
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "d".to_owned(),
+                        Symbol {
+                            scope: Scope::Local,
+                            index: 1,
+                        },
+                    ),
+                ],
+            ),
+        ];
+
+        for (mut table, symbols, free) in tests {
+            for (name, sym) in symbols {
+                assert_eq!(table.resolve(name).unwrap(), sym);
+            }
+
+            assert_eq!(table.free_symbols, free);
+        }
+    }
+    #[test]
+    fn test_resolve_unresolvable_free() {
+        let mut global = Box::new(SymbolTable::default());
+        global.define("a");
+
+        let mut first_local = SymbolTable::enclosing(global);
+        first_local.define("c");
+
+        let mut second_local = SymbolTable::enclosing(first_local);
+        second_local.define("e");
+        second_local.define("f");
+
+        let tests = vec![(
+            second_local,
+            vec![
+                (
+                    "a",
+                    Symbol {
+                        scope: Scope::Global,
+                        index: 0,
+                    },
+                ),
+                (
+                    "c",
+                    Symbol {
+                        scope: Scope::Free,
+                        index: 0,
+                    },
+                ),
+                (
+                    "e",
+                    Symbol {
+                        scope: Scope::Local,
+                        index: 0,
+                    },
+                ),
+                (
+                    "f",
+                    Symbol {
+                        scope: Scope::Local,
+                        index: 1,
+                    },
+                ),
+            ],
+            vec!["b", "d"],
+        )];
+
+        for (mut table, symbols, unresolvable) in tests {
+            for (name, sym) in symbols {
+                assert_eq!(table.resolve(name).unwrap(), sym);
+            }
+
+            for name in unresolvable {
+                assert_eq!(table.resolve(name), None);
+            }
+        }
     }
 }

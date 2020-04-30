@@ -108,6 +108,7 @@ impl Compiler {
                             Scope::Global => Opcode::SetGlobal,
                             Scope::Local => Opcode::SetLocal,
                             Scope::Builtin => panic!("define should never return a builtin"),
+                            Scope::Free => panic!("define should never return a free var"),
                         },
                         &[symbol.index],
                     );
@@ -304,6 +305,7 @@ impl Compiler {
             Scope::Global => Opcode::GetGlobal,
             Scope::Local => Opcode::GetLocal,
             Scope::Builtin => Opcode::GetBuiltin,
+            Scope::Free => Opcode::GetFree,
         }
     }
 
