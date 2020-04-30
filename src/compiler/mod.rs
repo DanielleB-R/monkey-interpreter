@@ -214,13 +214,20 @@ impl Compiler {
                     if !self.last_instruction_is(Opcode::ReturnValue) {
                         self.emit(Opcode::Return, &[]);
                     }
+
+                    let free_symbols = std::mem::take(&mut self.symbol_table.free_symbols);
+                    let num_free = free_symbols.len();
                     let num_locals = self.symbol_table.num_definitions;
                     let instructions = self.leave_scope();
+
+                    for (_, symbol) in free_symbols {
+                        self.emit(Self::load_symbol_instruction(symbol), &[symbol.index]);
+                    }
 
                     let const_index = self.add_constant(
                         CompiledFunction::new(instructions, num_locals, num_params).into(),
                     );
-                    self.emit(Opcode::Closure, &[const_index, 0]);
+                    self.emit(Opcode::Closure, &[const_index, num_free as isize]);
                 }
                 Expression::Call(c) => {
                     self.compile(*c.function)?;

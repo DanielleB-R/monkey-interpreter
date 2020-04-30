@@ -725,10 +725,7 @@ push([], 1);",
 fn test_closures() {
     let cases = vec![
         (
-            "fn(a) {
-                   fn(b) {
-a+b }
-}",
+            "fn(a) { fn(b) { a+b } }",
             vec![
                 CompiledFunction::new(
                     concat_instructions(vec![
@@ -737,8 +734,8 @@ a+b }
                         make_single(Opcode::Add),
                         make_single(Opcode::ReturnValue),
                     ]),
-                    0,
-                    0,
+                    1,
+                    1,
                 )
                 .into(),
                 CompiledFunction::new(
@@ -747,8 +744,8 @@ a+b }
                         code::make(Opcode::Closure, &[0, 1]).unwrap(),
                         make_single(Opcode::ReturnValue),
                     ]),
-                    0,
-                    0,
+                    1,
+                    1,
                 )
                 .into(),
             ],
@@ -758,12 +755,7 @@ a+b }
             ],
         ),
         (
-            "fn(a) {
-                   fn(b) {
-fn(c) { a+b+c
-}
-}
-}",
+            "fn(a) { fn(b) { fn(c) { a+b+c } } }",
             vec![
                 CompiledFunction::new(
                     concat_instructions(vec![
@@ -774,8 +766,8 @@ fn(c) { a+b+c
                         make_single(Opcode::Add),
                         make_single(Opcode::ReturnValue),
                     ]),
-                    0,
-                    0,
+                    1,
+                    1,
                 )
                 .into(),
                 CompiledFunction::new(
@@ -785,8 +777,8 @@ fn(c) { a+b+c
                         code::make(Opcode::Closure, &[0, 2]).unwrap(),
                         make_single(Opcode::ReturnValue),
                     ]),
-                    0,
-                    0,
+                    1,
+                    1,
                 )
                 .into(),
                 CompiledFunction::new(
@@ -795,8 +787,8 @@ fn(c) { a+b+c
                         code::make(Opcode::Closure, &[1, 1]).unwrap(),
                         make_single(Opcode::ReturnValue),
                     ]),
-                    0,
-                    0,
+                    1,
+                    1,
                 )
                 .into(),
             ],
@@ -806,16 +798,7 @@ fn(c) { a+b+c
             ],
         ),
         (
-            "let global = 55;
-               fn() {
-                   let a = 66;
-                   fn() {
-                       let b = 77;
-fn() {
-    let c = 88;
-    global + a + b + c;
-}
-} }",
+            "let global = 55; fn() { let a = 66; fn() { let b = 77; fn() { let c = 88; global + a + b + c; } } }",
             vec![
                 55.into(),
                 66.into(),
@@ -834,7 +817,7 @@ fn() {
                         make_single(Opcode::Add),
                         make_single(Opcode::ReturnValue),
                     ]),
-                    0,
+                    1,
                     0,
                 )
                 .into(),
@@ -847,7 +830,7 @@ fn() {
                         code::make(Opcode::Closure, &[4, 2]).unwrap(),
                         make_single(Opcode::ReturnValue),
                     ]),
-                    0,
+                    1,
                     0,
                 )
                 .into(),
@@ -859,7 +842,7 @@ fn() {
                         code::make(Opcode::Closure, &[5, 1]).unwrap(),
                         make_single(Opcode::ReturnValue),
                     ]),
-                    0,
+                    1,
                     0,
                 )
                 .into(),
