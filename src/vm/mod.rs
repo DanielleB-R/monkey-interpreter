@@ -159,7 +159,7 @@ impl VM {
                     let frame = self.current_frame();
                     let stack_index = (frame.base_pointer as usize) + local_index;
 
-                    self.push(self.stack[stack_index].clone())?;
+                    self.push(Rc::clone(&self.stack[stack_index]))?;
                 }
                 Opcode::GetBuiltin => {
                     let index = self.get_u8_arg(ip);
@@ -237,7 +237,7 @@ impl VM {
     }
 
     fn execute_call(&mut self, num_args: usize) -> Result<(), VMError> {
-        let callee = self.stack[self.sp - 1 - num_args].clone();
+        let callee = Rc::clone(&self.stack[self.sp - 1 - num_args]);
         match callee.as_ref() {
             Object::Closure(c) => self.call_closure(c, num_args),
             Object::Builtin(f) => self.call_builtin(f, num_args),
@@ -327,7 +327,7 @@ impl VM {
                 self.execute_binary_integer_operation(op, *l, *r)
             }
             (Object::String(l), Object::String(r)) => {
-                self.execute_binary_string_operation(op, l.clone(), r.clone())
+                self.execute_binary_string_operation(op, l.clone(), r)
             }
             (l, r) => Err(VMError::UnsupportedBinaryTypes {
                 left: l.type_name(),
@@ -357,10 +357,10 @@ impl VM {
         &mut self,
         op: Opcode,
         left: String,
-        right: String,
+        right: &str,
     ) -> Result<(), VMError> {
         if op == Opcode::Add {
-            self.push(Rc::new((left + &right).into()))
+            self.push(Rc::new((left + right).into()))
         } else {
             Err(VMError::UnknownStringOperator { op })
         }
