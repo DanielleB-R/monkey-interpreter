@@ -84,14 +84,6 @@ impl VM {
         self.frames.pop().unwrap()
     }
 
-    pub fn stack_top(&self) -> Option<&Object> {
-        if self.sp == 0 {
-            None
-        } else {
-            Some(&self.stack[self.sp - 1])
-        }
-    }
-
     pub fn run(&mut self) -> Result<(), VMError> {
         let mut ip;
         while self.current_frame().ip < ((self.current_frame().instructions().len()) - 1) as isize {
@@ -220,9 +212,6 @@ impl VM {
                     self.push(closure)?;
                 }
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
-                _ => {
-                    println!("unimplemented");
-                }
             }
         }
         Ok(())
@@ -373,18 +362,14 @@ impl VM {
     }
 
     fn build_array(&self, start_index: usize, end_index: usize) -> Object {
-        self.stack[start_index..end_index]
-            .iter()
-            .cloned()
-            .collect::<Vec<Object>>()
-            .into()
+        self.stack[start_index..end_index].to_vec().into()
     }
 
     fn build_hash(&self, start_index: usize, end_index: usize) -> Result<Object, VMError> {
         let mut hash: HashValue = Default::default();
         for pair in self.stack[start_index..end_index].chunks(2) {
             hash.values
-                .insert(pair[0].clone().try_into()?, pair[1].clone().into());
+                .insert(pair[0].clone().try_into()?, pair[1].clone());
         }
         Ok(hash.into())
     }

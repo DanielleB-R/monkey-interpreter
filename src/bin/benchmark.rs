@@ -2,7 +2,7 @@ use monkey_interpreter::{evaluator::eval, Compiler, Environment, Lexer, Parser, 
 use std::env;
 use std::time::Instant;
 
-static input: &str = "let fibonacci = fn(x) {
+static INPUT: &str = "let fibonacci = fn(x) {
 if (x == 0) { 0
      } else {
        if (x == 1) {
@@ -14,7 +14,7 @@ if (x == 0) { 0
    fibonacci(35);";
 
 fn main() {
-    let program = Parser::new(Lexer::new(input.to_owned()))
+    let program = Parser::new(Lexer::new(INPUT.to_owned()))
         .parse_program()
         .expect("Parse errors found");
 

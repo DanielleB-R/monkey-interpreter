@@ -277,7 +277,6 @@ impl Compiler {
                     let after_alternative_pos = self.current_instructions().len();
                     self.change_operand(jump_pos, after_alternative_pos as isize);
                 }
-                _ => println!("unimplemented"),
             },
         }
 

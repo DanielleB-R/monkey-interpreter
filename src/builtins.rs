@@ -118,7 +118,7 @@ pub enum Builtin {
 }
 
 impl Builtin {
-    pub fn func(&self) -> fn(Vec<Object>) -> Result<Object> {
+    pub fn func(self) -> fn(Vec<Object>) -> Result<Object> {
         match self {
             Self::Len => len,
             Self::Puts => puts,

@@ -228,6 +228,7 @@ pub fn make(op: Opcode, operands: &[isize]) -> Option<Instructions> {
     Some(instruction.into())
 }
 
+#[cfg(test)]
 pub fn concat_instructions(data: Vec<Instructions>) -> Instructions {
     data.into_iter().flatten().collect::<Vec<u8>>().into()
 }

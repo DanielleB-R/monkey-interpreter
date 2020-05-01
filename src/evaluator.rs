@@ -57,7 +57,6 @@ pub fn eval<T: Into<Node>>(node: T, env: &mut Environment) -> Result<Object> {
                 let index = eval(*i.index, env)?;
                 eval_index_expression(left, index)
             }
-            _ => Ok(Object::Null),
         },
     }
 }
