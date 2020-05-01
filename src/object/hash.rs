@@ -57,3 +57,11 @@ impl TryFrom<Object> for HashKey {
         }
     }
 }
+
+impl TryFrom<&Object> for HashKey {
+    type Error = EvalError;
+
+    fn try_from(obj: &Object) -> std::result::Result<Self, Self::Error> {
+        HashKey::try_from(obj.clone())
+    }
+}

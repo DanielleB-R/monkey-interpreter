@@ -7,6 +7,7 @@ use crate::object::Object;
 use crate::parser::Parser;
 use crate::vm::VM;
 use std::io::{self, Write};
+use std::rc::Rc;
 use strum::IntoEnumIterator;
 
 static PROMPT: &str = ">> ";
@@ -45,7 +46,7 @@ pub fn start() {
             .symbol_table
             .define_builtin(builtin as isize, &builtin.to_string());
     }
-    let mut vm_state: Vec<Object> = vec![Object::Null; 65536];
+    let mut vm_state: Vec<Rc<Object>> = vec![Rc::new(Object::Null); 65536];
     loop {
         print!("{}", PROMPT);
         let _ = io::stdout().flush();

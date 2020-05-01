@@ -41,7 +41,7 @@ pub struct VM {
     stack: Vec<Rc<Object>>,
     sp: usize,
 
-    globals: Vec<Object>,
+    globals: Vec<Rc<Object>>,
 
     frames: Vec<Frame>,
     frames_index: usize,
@@ -55,14 +55,14 @@ impl VM {
             stack: vec![Rc::new(Object::Null); STACK_SIZE],
             sp: 0,
 
-            globals: vec![Object::Null; GLOBALS_SIZE],
+            globals: vec![Rc::new(Object::Null); GLOBALS_SIZE],
 
             frames: vec![bytecode.instructions.into()],
             frames_index: 1,
         }
     }
 
-    pub fn with_state(bytecode: compiler::Bytecode, state: Vec<Object>) -> Self {
+    pub fn with_state(bytecode: compiler::Bytecode, state: Vec<Rc<Object>>) -> Self {
         Self {
             constants: bytecode.constants,
 
@@ -118,7 +118,7 @@ impl VM {
                     let index = self.pop();
                     let left = self.pop();
 
-                    self.execute_index_expression(left.as_ref().clone(), index.as_ref().clone())?;
+                    self.execute_index_expression(left, index)?;
                 }
                 Opcode::Pop => {
                     self.pop();
@@ -141,12 +141,12 @@ impl VM {
                 Opcode::SetGlobal => {
                     let index = self.get_u16_arg(ip);
 
-                    self.globals[index as usize] = self.pop().as_ref().clone();
+                    self.globals[index as usize] = self.pop()
                 }
                 Opcode::GetGlobal => {
                     let pos = self.get_u16_arg(ip);
 
-                    self.push(Rc::new(self.globals[pos as usize].clone()))?
+                    self.push(Rc::clone(&self.globals[pos as usize]))?
                 }
                 Opcode::SetLocal => {
                     let local_index = self.get_u8_arg(ip) as usize;
@@ -381,9 +381,13 @@ impl VM {
         Ok(hash.into())
     }
 
-    fn execute_index_expression(&mut self, left: Object, index: Object) -> Result<(), VMError> {
-        match (left, index) {
-            (Object::Array(arr), Object::Integer(int)) => self.execute_array_index(arr, int),
+    fn execute_index_expression(
+        &mut self,
+        left: Rc<Object>,
+        index: Rc<Object>,
+    ) -> Result<(), VMError> {
+        match (left.as_ref(), index.as_ref()) {
+            (Object::Array(arr), Object::Integer(int)) => self.execute_array_index(arr, *int),
             (Object::Hash(hash), ind) => self.execute_hash_index(hash, ind),
             (obj, _) => Err(VMError::Unindexable {
                 type_name: obj.type_name(),
@@ -391,16 +395,20 @@ impl VM {
         }
     }
 
-    fn execute_array_index(&mut self, left: Vec<Object>, index: i64) -> Result<(), VMError> {
+    fn execute_array_index(&mut self, left: &[Object], index: i64) -> Result<(), VMError> {
         self.push(Rc::new(
-            left.into_iter().nth(index as usize).unwrap_or(Object::Null),
+            left.iter()
+                .nth(index as usize)
+                .cloned()
+                .unwrap_or(Object::Null),
         ))
     }
 
-    fn execute_hash_index(&mut self, mut left: HashValue, index: Object) -> Result<(), VMError> {
+    fn execute_hash_index(&mut self, left: &HashValue, index: &Object) -> Result<(), VMError> {
         self.push(Rc::new(
             left.values
-                .remove(&index.try_into()?)
+                .get(&index.try_into()?)
+                .cloned()
                 .unwrap_or(Object::Null),
         ))
     }
@@ -426,7 +434,7 @@ impl VM {
         &self.stack[self.sp]
     }
 
-    pub fn into_state(self) -> Vec<Object> {
+    pub fn into_state(self) -> Vec<Rc<Object>> {
         self.globals
     }
 }
