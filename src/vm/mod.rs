@@ -91,7 +91,7 @@ impl VM {
 
     pub fn run(&mut self) -> Result<(), VMError> {
         let mut ip;
-        while self.current_frame().ip < ((self.current_frame().instructions().len()) - 1) as isize {
+        while self.current_frame().is_valid_ip() {
             self.current_frame().ip += 1;
 
             ip = self.current_frame().ip as usize;

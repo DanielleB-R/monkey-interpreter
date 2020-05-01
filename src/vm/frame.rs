@@ -36,4 +36,8 @@ impl Frame {
     pub fn get_free(&self, index: usize) -> Object {
         self.func.free[index].clone()
     }
+
+    pub fn is_valid_ip(&self) -> bool {
+        self.ip < ((self.func.func.instructions.len() - 1) as isize)
+    }
 }
