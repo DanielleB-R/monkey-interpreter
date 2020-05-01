@@ -14,16 +14,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "lazy_static"
-version = "1.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
 name = "monkey-interpreter"
 version = "0.1.0"
 dependencies = [
  "custom_error 1.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "strum 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "strum_macros 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -83,7 +77,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [metadata]
 "checksum custom_error 1.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "93a0fc65739ae998afc8d68e64bdac2efd1bc4ffa1a0703d171ef2defae3792f"
 "checksum heck 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "20564e78d53d2bb135c343b3f47714a56af2061f1c928fdb541dc7b9fdd94205"
-"checksum lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 "checksum proc-macro2 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "6c09721c6781493a2a492a96b5a5bf19b65917fe6728884e7c44dd0c60ca3435"
 "checksum quote 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "2bdc6c187c65bca4260c9011c9e3132efe4909da44726bad24cf7572ae338d7f"
 "checksum strum 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)" = "57bd81eb48f4c437cadc685403cad539345bf703d78e63707418431cecd4522b"
