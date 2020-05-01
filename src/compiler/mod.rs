@@ -3,11 +3,12 @@ mod symbol;
 mod tests;
 
 use crate::ast::{Expression, Node, Operator, Statement};
-use crate::builtins::BUILTINS;
+use crate::builtins::Builtin;
 use crate::code::{self, BytecodeError, Instructions, Opcode};
 use crate::object::{CompiledFunction, Object};
 use custom_error::custom_error;
 use std::convert::TryInto;
+use strum::IntoEnumIterator;
 use symbol::Scope;
 
 custom_error! {
@@ -45,8 +46,8 @@ impl Default for Compiler {
     fn default() -> Self {
         let mut symbol_table = Box::new(symbol::SymbolTable::default());
 
-        for (i, (name, _)) in BUILTINS.iter().enumerate() {
-            symbol_table.define_builtin(i as isize, name);
+        for builtin in Builtin::iter() {
+            symbol_table.define_builtin(builtin as isize, &builtin.to_string());
         }
 
         Self {

@@ -2,10 +2,10 @@ mod frame;
 #[cfg(test)]
 mod test;
 
-use crate::builtins::BUILTINS;
+use crate::builtins::Builtin;
 use crate::code::{self, Opcode};
 use crate::compiler;
-use crate::object::{Builtin, Closure, EvalError, HashValue, Object};
+use crate::object::{Closure, EvalError, HashValue, Object};
 use custom_error::custom_error;
 use frame::Frame;
 use std::convert::TryInto;
@@ -165,9 +165,9 @@ impl VM {
                     self.push(self.stack[stack_index].clone())?;
                 }
                 Opcode::GetBuiltin => {
-                    let index = self.get_u8_arg(ip) as usize;
+                    let index = self.get_u8_arg(ip);
 
-                    let builtin = BUILTINS[index].1.clone();
+                    let builtin = Object::Builtin(unsafe { std::mem::transmute(index) });
                     self.push(builtin)?;
                 }
                 Opcode::GetFree => {
@@ -267,7 +267,7 @@ impl VM {
     fn call_builtin(&mut self, f: Builtin, num_args: usize) -> Result<(), VMError> {
         let args = self.stack[self.sp - num_args..self.sp].to_vec();
 
-        self.push(f(args)?)
+        self.push(f.func()(args)?)
     }
 
     fn push_closure(&mut self, const_index: usize, num_free: usize) -> Result<(), VMError> {

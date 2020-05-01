@@ -1,4 +1,5 @@
 use crate::ast;
+use crate::builtins::Builtin;
 use crate::code::Instructions;
 use crate::environment::Environment;
 use std::collections::HashMap;
@@ -12,8 +13,6 @@ mod hash;
 pub use hash::HashKey;
 
 pub type Result<T> = std::result::Result<T, EvalError>;
-
-pub type Builtin = fn(Vec<Object>) -> Result<Object>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {

@@ -1,5 +1,5 @@
 use crate::object::*;
-use lazy_static::lazy_static;
+use strum_macros::{Display, EnumIter, EnumString};
 
 fn len(args: Vec<Object>) -> Result<Object> {
     if args.len() != 1 {
@@ -106,13 +106,26 @@ fn puts(args: Vec<Object>) -> Result<Object> {
     Ok(Object::Null)
 }
 
-lazy_static! {
-    pub static ref BUILTINS: Vec<(String, Object)> = vec![
-        ("len".to_owned(), Object::Builtin(len)),
-        ("puts".to_owned(), Object::Builtin(puts)),
-        ("first".to_owned(), Object::Builtin(first)),
-        ("last".to_owned(), Object::Builtin(last)),
-        ("rest".to_owned(), Object::Builtin(rest)),
-        ("push".to_owned(), Object::Builtin(push)),
-    ];
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Display, EnumString, EnumIter)]
+#[strum(serialize_all = "snake_case")]
+pub enum Builtin {
+    Len,
+    Puts,
+    First,
+    Last,
+    Rest,
+    Push,
+}
+
+impl Builtin {
+    pub fn func(&self) -> fn(Vec<Object>) -> Result<Object> {
+        match self {
+            Self::Len => len,
+            Self::Puts => puts,
+            Self::First => first,
+            Self::Last => last,
+            Self::Rest => rest,
+            Self::Push => push,
+        }
+    }
 }

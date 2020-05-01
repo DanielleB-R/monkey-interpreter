@@ -1,4 +1,4 @@
-use crate::builtins::BUILTINS;
+use crate::builtins::Builtin;
 use crate::compiler::{Compiler, CompilerState};
 use crate::environment::Environment;
 use crate::evaluator;
@@ -7,6 +7,7 @@ use crate::object::Object;
 use crate::parser::Parser;
 use crate::vm::VM;
 use std::io::{self, Write};
+use strum::IntoEnumIterator;
 
 static PROMPT: &str = ">> ";
 
@@ -39,8 +40,10 @@ pub fn start_interpreted() {
 
 pub fn start() {
     let mut compiler_state = CompilerState::default();
-    for (i, (name, _)) in BUILTINS.iter().enumerate() {
-        compiler_state.symbol_table.define_builtin(i as isize, name);
+    for builtin in Builtin::iter() {
+        compiler_state
+            .symbol_table
+            .define_builtin(builtin as isize, &builtin.to_string());
     }
     let mut vm_state: Vec<Object> = vec![Object::Null; 65536];
     loop {

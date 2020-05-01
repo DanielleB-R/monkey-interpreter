@@ -1,14 +1,8 @@
 use crate::ast::{self, Node};
-use crate::builtins;
 use crate::environment::Environment;
-use crate::object::{EvalError, FunctionObject, HashKey, HashValue, Object, Result};
-use lazy_static::lazy_static;
+use crate::object::{EvalError, FunctionObject, HashValue, Object, Result};
 use std::collections::HashMap;
 use std::convert::TryInto;
-
-lazy_static! {
-    pub static ref BUILTINS: HashMap<String, Object> = builtins::BUILTINS.iter().cloned().collect();
-}
 
 pub fn eval<T: Into<Node>>(node: T, env: &mut Environment) -> Result<Object> {
     match node.into() {
@@ -41,7 +35,7 @@ pub fn eval<T: Into<Node>>(node: T, env: &mut Environment) -> Result<Object> {
             ast::Expression::If(if_expression) => eval_if_expression(if_expression, env),
             ast::Expression::Identifier(identifier) => env
                 .get(&identifier.value)
-                .or_else(|| BUILTINS.get(&identifier.value).cloned())
+                .or_else(|| identifier.value.parse().map(Object::Builtin).ok())
                 .ok_or_else(|| EvalError::IdentifierNotFound {
                     id: identifier.value.clone(),
                 }),
@@ -194,7 +188,7 @@ fn apply_function(func: Object, args: Vec<Object>) -> Result<Object> {
 
             eval(f.body, &mut env).map(Object::unwrap_return)
         }
-        Object::Builtin(f) => f(args),
+        Object::Builtin(b) => b.func()(args),
         obj => Err(EvalError::NotAFunction {
             type_name: obj.type_name(),
         }),
@@ -257,6 +251,7 @@ fn eval_hash_literal(
 mod test {
     use super::*;
     use crate::lexer::Lexer;
+    use crate::object::HashKey;
     use crate::parser::Parser;
 
     #[test]
