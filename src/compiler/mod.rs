@@ -8,6 +8,7 @@ use crate::code::{self, BytecodeError, Instructions, Opcode};
 use crate::object::{CompiledFunction, Object};
 use custom_error::custom_error;
 use std::convert::TryInto;
+use std::rc::Rc;
 use strum::IntoEnumIterator;
 use symbol::Scope;
 
@@ -34,7 +35,7 @@ pub struct CompilationScope {
 
 #[derive(Debug, Clone)]
 pub struct Compiler {
-    constants: Vec<Object>,
+    constants: Vec<Rc<Object>>,
 
     symbol_table: Box<symbol::SymbolTable>,
 
@@ -61,7 +62,7 @@ impl Default for Compiler {
 
 #[derive(Default, Clone)]
 pub struct CompilerState {
-    constants: Vec<Object>,
+    constants: Vec<Rc<Object>>,
     pub symbol_table: Box<symbol::SymbolTable>,
 }
 
@@ -284,7 +285,7 @@ impl Compiler {
     }
 
     pub fn add_constant(&mut self, obj: Object) -> isize {
-        self.constants.push(obj);
+        self.constants.push(Rc::new(obj));
         (self.constants.len() - 1) as isize
     }
 
@@ -389,5 +390,5 @@ impl Compiler {
 #[derive(Debug, Clone, Default)]
 pub struct Bytecode {
     pub instructions: Instructions,
-    pub constants: Vec<Object>,
+    pub constants: Vec<Rc<Object>>,
 }

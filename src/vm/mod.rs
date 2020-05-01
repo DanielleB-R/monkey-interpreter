@@ -9,6 +9,7 @@ use crate::object::{Closure, EvalError, HashValue, Object};
 use custom_error::custom_error;
 use frame::Frame;
 use std::convert::TryInto;
+use std::rc::Rc;
 
 custom_error! {
     #[derive(PartialEq)]
@@ -30,10 +31,14 @@ custom_error! {
 pub static STACK_SIZE: usize = 2048;
 pub static GLOBALS_SIZE: usize = 65536;
 
-pub struct VM {
-    constants: Vec<Object>,
+fn lower_vec(input: Vec<Rc<Object>>) -> Vec<Object> {
+    input.into_iter().map(|o| o.as_ref().clone()).collect()
+}
 
-    stack: Vec<Object>,
+pub struct VM {
+    constants: Vec<Rc<Object>>,
+
+    stack: Vec<Rc<Object>>,
     sp: usize,
 
     globals: Vec<Object>,
@@ -47,7 +52,7 @@ impl VM {
         Self {
             constants: bytecode.constants,
 
-            stack: vec![Object::Null; STACK_SIZE],
+            stack: vec![Rc::new(Object::Null); STACK_SIZE],
             sp: 0,
 
             globals: vec![Object::Null; GLOBALS_SIZE],
@@ -61,7 +66,7 @@ impl VM {
         Self {
             constants: bytecode.constants,
 
-            stack: vec![Object::Null; STACK_SIZE],
+            stack: vec![Rc::new(Object::Null); STACK_SIZE],
             sp: 0,
 
             globals: state,
@@ -95,7 +100,7 @@ impl VM {
             match op {
                 Opcode::Constant => {
                     let const_index = self.get_u16_arg(ip);
-                    self.push(self.constants[const_index as usize].clone())?;
+                    self.push(Rc::clone(&self.constants[const_index as usize]))?;
                 }
                 Opcode::Add | Opcode::Sub | Opcode::Mul | Opcode::Div => {
                     self.execute_binary_operation(op)?;
@@ -113,14 +118,14 @@ impl VM {
                     let index = self.pop();
                     let left = self.pop();
 
-                    self.execute_index_expression(left, index)?;
+                    self.execute_index_expression(left.as_ref().clone(), index.as_ref().clone())?;
                 }
                 Opcode::Pop => {
                     self.pop();
                 }
-                Opcode::True => self.push(true.into())?,
-                Opcode::False => self.push(false.into())?,
-                Opcode::Null => self.push(Object::Null)?,
+                Opcode::True => self.push(Rc::new(true.into()))?,
+                Opcode::False => self.push(Rc::new(false.into()))?,
+                Opcode::Null => self.push(Rc::new(Object::Null))?,
                 Opcode::JumpFalsy => {
                     let target = self.get_u16_arg(ip);
                     let condition = self.pop();
@@ -136,12 +141,12 @@ impl VM {
                 Opcode::SetGlobal => {
                     let index = self.get_u16_arg(ip);
 
-                    self.globals[index as usize] = self.pop();
+                    self.globals[index as usize] = self.pop().as_ref().clone();
                 }
                 Opcode::GetGlobal => {
                     let pos = self.get_u16_arg(ip);
 
-                    self.push(self.globals[pos as usize].clone())?
+                    self.push(Rc::new(self.globals[pos as usize].clone()))?
                 }
                 Opcode::SetLocal => {
                     let local_index = self.get_u8_arg(ip) as usize;
@@ -160,27 +165,27 @@ impl VM {
                     let index = self.get_u8_arg(ip);
 
                     let builtin = Object::Builtin(unsafe { std::mem::transmute(index) });
-                    self.push(builtin)?;
+                    self.push(Rc::new(builtin))?;
                 }
                 Opcode::GetFree => {
                     let free_index = self.get_u8_arg(ip) as usize;
 
                     let value = self.current_frame().get_free(free_index);
-                    self.push(value)?;
+                    self.push(Rc::new(value))?;
                 }
                 Opcode::Array => {
                     let len = self.get_u16_arg(ip) as usize;
 
                     let arr = self.build_array(self.sp - len, self.sp);
                     self.sp -= len;
-                    self.push(arr)?;
+                    self.push(Rc::new(arr))?;
                 }
                 Opcode::Hash => {
                     let len = self.get_u16_arg(ip) as usize;
 
                     let hash = self.build_hash(self.sp - len, self.sp)?;
                     self.sp -= len;
-                    self.push(hash)?;
+                    self.push(Rc::new(hash))?;
                 }
                 Opcode::Call => {
                     let num_args = self.get_u8_arg(ip) as usize;
@@ -205,11 +210,11 @@ impl VM {
                     let frame = self.pop_frame();
                     self.sp = (frame.base_pointer - 1) as usize;
 
-                    self.push(Object::Null)?;
+                    self.push(Rc::new(Object::Null))?;
                 }
                 Opcode::CurrentClosure => {
                     let closure = self.current_frame().func.clone().into();
-                    self.push(closure)?;
+                    self.push(Rc::new(closure))?;
                 }
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
             }
@@ -233,14 +238,14 @@ impl VM {
 
     fn execute_call(&mut self, num_args: usize) -> Result<(), VMError> {
         let callee = self.stack[self.sp - 1 - num_args].clone();
-        match callee {
+        match callee.as_ref() {
             Object::Closure(c) => self.call_closure(c, num_args),
             Object::Builtin(f) => self.call_builtin(f, num_args),
             _ => Err(VMError::Uncallable),
         }
     }
 
-    fn call_closure(&mut self, cf: Closure, num_args: usize) -> Result<(), VMError> {
+    fn call_closure(&mut self, cf: &Closure, num_args: usize) -> Result<(), VMError> {
         if num_args != cf.func.num_parameters {
             return Err(VMError::WrongArgumentCount {
                 expected: cf.func.num_parameters,
@@ -248,20 +253,20 @@ impl VM {
             });
         }
         let num_locals = cf.func.num_locals as usize;
-        self.push_frame(Frame::new(cf, (self.sp - num_args) as isize));
+        self.push_frame(Frame::new(cf.clone(), (self.sp - num_args) as isize));
         self.sp += num_locals;
         Ok(())
     }
 
-    fn call_builtin(&mut self, f: Builtin, num_args: usize) -> Result<(), VMError> {
+    fn call_builtin(&mut self, f: &Builtin, num_args: usize) -> Result<(), VMError> {
         let args = self.stack[self.sp - num_args..self.sp].to_vec();
 
-        self.push(f.func()(args)?)
+        self.push(Rc::new(f.func()(lower_vec(args))?))
     }
 
     fn push_closure(&mut self, const_index: usize, num_free: usize) -> Result<(), VMError> {
         let constant = &self.constants[const_index];
-        let mut closure: Closure = match constant {
+        let mut closure: Closure = match constant.as_ref() {
             Object::CompiledFunction(cf) => cf.clone().into(),
             _ => return Err(VMError::NotAFunction),
         };
@@ -269,11 +274,11 @@ impl VM {
         for i in 0..num_free {
             closure
                 .free
-                .push(self.stack[self.sp - num_free + i].clone());
+                .push(self.stack[self.sp - num_free + i].as_ref().clone());
         }
         self.sp -= num_free;
 
-        self.push(closure.into())
+        self.push(Rc::new(closure.into()))
     }
 
     fn execute_comparison(&mut self, op: Opcode) -> Result<(), VMError> {
@@ -281,10 +286,10 @@ impl VM {
         let left = self.pop();
 
         match op {
-            Opcode::Equal => self.push((right == left).into()),
-            Opcode::NotEqual => self.push((right != left).into()),
-            Opcode::GreaterThan => match (left, right) {
-                (Object::Integer(l), Object::Integer(r)) => self.push((l > r).into()),
+            Opcode::Equal => self.push(Rc::new((right == left).into())),
+            Opcode::NotEqual => self.push(Rc::new((right != left).into())),
+            Opcode::GreaterThan => match (left.as_ref(), right.as_ref()) {
+                (Object::Integer(l), Object::Integer(r)) => self.push(Rc::new((l > r).into())),
                 (l, r) => Err(VMError::UnknownOperator {
                     op,
                     left: l.type_name(),
@@ -301,13 +306,13 @@ impl VM {
 
     fn execute_bang_operator(&mut self) -> Result<(), VMError> {
         let operand = self.pop();
-        self.push((!operand.truth_value()).into())
+        self.push(Rc::new((!operand.truth_value()).into()))
     }
 
     fn execute_minus_operator(&mut self) -> Result<(), VMError> {
         let operand = self.pop();
-        match operand {
-            Object::Integer(n) => self.push((-n).into()),
+        match operand.as_ref() {
+            Object::Integer(n) => self.push(Rc::new((-n).into())),
             o => Err(VMError::UnsupportedNegation {
                 type_name: o.type_name(),
             }),
@@ -317,12 +322,12 @@ impl VM {
     fn execute_binary_operation(&mut self, op: Opcode) -> Result<(), VMError> {
         let right = self.pop();
         let left = self.pop();
-        match (left, right) {
+        match (left.as_ref(), right.as_ref()) {
             (Object::Integer(l), Object::Integer(r)) => {
-                self.execute_binary_integer_operation(op, l, r)
+                self.execute_binary_integer_operation(op, *l, *r)
             }
             (Object::String(l), Object::String(r)) => {
-                self.execute_binary_string_operation(op, l, r)
+                self.execute_binary_string_operation(op, l.clone(), r.clone())
             }
             (l, r) => Err(VMError::UnsupportedBinaryTypes {
                 left: l.type_name(),
@@ -345,7 +350,7 @@ impl VM {
             _ => return Err(VMError::UnknownIntegerOperator { op }),
         };
 
-        self.push(result.into())
+        self.push(Rc::new(result.into()))
     }
 
     fn execute_binary_string_operation(
@@ -355,21 +360,23 @@ impl VM {
         right: String,
     ) -> Result<(), VMError> {
         if op == Opcode::Add {
-            self.push((left + &right).into())
+            self.push(Rc::new((left + &right).into()))
         } else {
             Err(VMError::UnknownStringOperator { op })
         }
     }
 
     fn build_array(&self, start_index: usize, end_index: usize) -> Object {
-        self.stack[start_index..end_index].to_vec().into()
+        lower_vec(self.stack[start_index..end_index].to_vec()).into()
     }
 
     fn build_hash(&self, start_index: usize, end_index: usize) -> Result<Object, VMError> {
         let mut hash: HashValue = Default::default();
         for pair in self.stack[start_index..end_index].chunks(2) {
-            hash.values
-                .insert(pair[0].clone().try_into()?, pair[1].clone());
+            hash.values.insert(
+                pair[0].as_ref().clone().try_into()?,
+                pair[1].as_ref().clone(),
+            );
         }
         Ok(hash.into())
     }
@@ -385,18 +392,20 @@ impl VM {
     }
 
     fn execute_array_index(&mut self, left: Vec<Object>, index: i64) -> Result<(), VMError> {
-        self.push(left.into_iter().nth(index as usize).unwrap_or(Object::Null))
+        self.push(Rc::new(
+            left.into_iter().nth(index as usize).unwrap_or(Object::Null),
+        ))
     }
 
     fn execute_hash_index(&mut self, mut left: HashValue, index: Object) -> Result<(), VMError> {
-        self.push(
+        self.push(Rc::new(
             left.values
                 .remove(&index.try_into()?)
                 .unwrap_or(Object::Null),
-        )
+        ))
     }
 
-    fn push(&mut self, obj: Object) -> Result<(), VMError> {
+    fn push(&mut self, obj: Rc<Object>) -> Result<(), VMError> {
         if self.sp >= STACK_SIZE {
             return Err(VMError::StackOverflow); // stack overflow
         }
@@ -407,10 +416,10 @@ impl VM {
         Ok(())
     }
 
-    fn pop(&mut self) -> Object {
-        let obj = self.stack[self.sp - 1].clone();
+    fn pop(&mut self) -> Rc<Object> {
+        let obj = &self.stack[self.sp - 1];
         self.sp -= 1;
-        obj
+        Rc::clone(obj)
     }
 
     pub fn last_popped_stack_element(&self) -> &Object {

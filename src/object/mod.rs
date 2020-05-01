@@ -147,7 +147,7 @@ impl Object {
         }
     }
 
-    pub fn truth_value(self) -> bool {
+    pub fn truth_value(&self) -> bool {
         match self {
             Self::Boolean(false) => false,
             Self::Null => false,

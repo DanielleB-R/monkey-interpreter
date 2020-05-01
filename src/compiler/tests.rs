@@ -940,6 +940,10 @@ wrapper();",
     run_compiler_tests(cases);
 }
 
+fn lower_vec(input: Vec<Rc<Object>>) -> Vec<Object> {
+    input.into_iter().map(|o| o.as_ref().clone()).collect()
+}
+
 fn run_compiler_tests(cases: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
     for (input, constants, instructions) in cases.into_iter() {
         let program = parse(input);
@@ -949,7 +953,7 @@ fn run_compiler_tests(cases: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
 
         let bytecode = compiler.bytecode();
         test_instructions(instructions, bytecode.instructions);
-        assert_eq!(constants, bytecode.constants);
+        assert_eq!(constants, lower_vec(bytecode.constants));
     }
 }
 
