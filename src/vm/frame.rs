@@ -1,5 +1,6 @@
 use crate::code::Instructions;
 use crate::object::{Closure, CompiledFunction, Object};
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct Frame {
@@ -33,8 +34,8 @@ impl Frame {
         &self.func.func.instructions
     }
 
-    pub fn get_free(&self, index: usize) -> Object {
-        self.func.free[index].clone()
+    pub fn get_free(&self, index: usize) -> Rc<Object> {
+        Rc::clone(&self.func.free[index])
     }
 
     pub fn is_valid_ip(&self) -> bool {

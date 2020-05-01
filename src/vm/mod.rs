@@ -171,7 +171,7 @@ impl VM {
                     let free_index = self.get_u8_arg(ip) as usize;
 
                     let value = self.current_frame().get_free(free_index);
-                    self.push(Rc::new(value))?;
+                    self.push(value)?;
                 }
                 Opcode::Array => {
                     let len = self.get_u16_arg(ip) as usize;
@@ -274,7 +274,7 @@ impl VM {
         for i in 0..num_free {
             closure
                 .free
-                .push(self.stack[self.sp - num_free + i].as_ref().clone());
+                .push(Rc::clone(&self.stack[self.sp - num_free + i]));
         }
         self.sp -= num_free;
 

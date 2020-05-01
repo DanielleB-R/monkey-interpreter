@@ -5,6 +5,7 @@ use crate::environment::Environment;
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::iter::FromIterator;
+use std::rc::Rc;
 
 mod eval_error;
 pub use eval_error::EvalError;
@@ -200,7 +201,7 @@ impl CompiledFunction {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Closure {
     pub func: CompiledFunction,
-    pub free: Vec<Object>,
+    pub free: Vec<Rc<Object>>,
 }
 
 impl From<CompiledFunction> for Closure {
