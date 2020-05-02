@@ -45,38 +45,58 @@ pub struct VM {
 
     frames: Vec<Frame>,
     frames_index: usize,
+
+    null: Rc<Object>,
+    true_obj: Rc<Object>,
+    false_obj: Rc<Object>,
 }
 
 impl VM {
     pub fn new(bytecode: compiler::Bytecode) -> Self {
+        let null = Rc::new(Object::Null);
+        let true_obj = Rc::new(true.into());
+        let false_obj = Rc::new(false.into());
+
         Self {
             constants: bytecode.constants,
 
-            stack: vec![Rc::new(Object::Null); STACK_SIZE],
+            stack: vec![Rc::clone(&null); STACK_SIZE],
             sp: 0,
 
-            globals: vec![Rc::new(Object::Null); GLOBALS_SIZE],
+            globals: vec![Rc::clone(&null); GLOBALS_SIZE],
 
             frames: vec![bytecode.instructions.into()],
             frames_index: 1,
+
+            null,
+            true_obj,
+            false_obj,
         }
     }
 
     pub fn with_state(bytecode: compiler::Bytecode, state: Vec<Rc<Object>>) -> Self {
+        let null = Rc::new(Object::Null);
+        let true_obj = Rc::new(true.into());
+        let false_obj = Rc::new(false.into());
+
         Self {
             constants: bytecode.constants,
 
-            stack: vec![Rc::new(Object::Null); STACK_SIZE],
+            stack: vec![Rc::clone(&null); STACK_SIZE],
             sp: 0,
 
             globals: state,
             frames: vec![bytecode.instructions.into()],
             frames_index: 1,
+
+            null,
+            true_obj,
+            false_obj,
         }
     }
 
     fn current_frame(&mut self) -> &mut Frame {
-        &mut self.frames[self.frames_index - 1]
+        self.frames.last_mut().unwrap()
     }
 
     fn push_frame(&mut self, frame: Frame) {
@@ -92,10 +112,13 @@ impl VM {
     pub fn run(&mut self) -> Result<(), VMError> {
         let mut ip;
         while self.current_frame().is_valid_ip() {
-            self.current_frame().ip += 1;
+            let op: Opcode = {
+                let mut current_frame = self.current_frame();
+                current_frame.ip += 1;
 
-            ip = self.current_frame().ip as usize;
-            let op: Opcode = self.current_frame().instructions()[ip].try_into().unwrap();
+                ip = current_frame.ip as usize;
+                current_frame.instructions()[ip].try_into().unwrap()
+            };
 
             match op {
                 Opcode::Constant => {
@@ -123,9 +146,9 @@ impl VM {
                 Opcode::Pop => {
                     self.pop();
                 }
-                Opcode::True => self.push(Rc::new(true.into()))?,
-                Opcode::False => self.push(Rc::new(false.into()))?,
-                Opcode::Null => self.push(Rc::new(Object::Null))?,
+                Opcode::True => self.push(Rc::clone(&self.true_obj))?,
+                Opcode::False => self.push(Rc::clone(&self.false_obj))?,
+                Opcode::Null => self.push(Rc::clone(&self.null))?,
                 Opcode::JumpFalsy => {
                     let target = self.get_u16_arg(ip);
                     let condition = self.pop();
@@ -210,10 +233,10 @@ impl VM {
                     let frame = self.pop_frame();
                     self.sp = (frame.base_pointer - 1) as usize;
 
-                    self.push(Rc::new(Object::Null))?;
+                    self.push(Rc::clone(&self.null))?;
                 }
                 Opcode::CurrentClosure => {
-                    let closure = self.current_frame().func.clone().into();
+                    let closure = Rc::clone(&self.current_frame().func).into();
                     self.push(Rc::new(closure))?;
                 }
                 Opcode::Maximum => panic!("Maximum opcode should not be emitted"),
@@ -245,7 +268,7 @@ impl VM {
         }
     }
 
-    fn call_closure(&mut self, cf: &Closure, num_args: usize) -> Result<(), VMError> {
+    fn call_closure(&mut self, cf: &Rc<Closure>, num_args: usize) -> Result<(), VMError> {
         if num_args != cf.func.num_parameters {
             return Err(VMError::WrongArgumentCount {
                 expected: cf.func.num_parameters,
@@ -253,7 +276,7 @@ impl VM {
             });
         }
         let num_locals = cf.func.num_locals as usize;
-        self.push_frame(Frame::new(cf.clone(), (self.sp - num_args) as isize));
+        self.push_frame(Frame::new(Rc::clone(cf), (self.sp - num_args) as isize));
         self.sp += num_locals;
         Ok(())
     }
@@ -278,7 +301,7 @@ impl VM {
         }
         self.sp -= num_free;
 
-        self.push(Rc::new(closure.into()))
+        self.push(Rc::new(Rc::new(closure).into()))
     }
 
     fn execute_comparison(&mut self, op: Opcode) -> Result<(), VMError> {
@@ -286,10 +309,10 @@ impl VM {
         let left = self.pop();
 
         match op {
-            Opcode::Equal => self.push(Rc::new((right == left).into())),
-            Opcode::NotEqual => self.push(Rc::new((right != left).into())),
+            Opcode::Equal => self.push_bool(right == left),
+            Opcode::NotEqual => self.push_bool(right != left),
             Opcode::GreaterThan => match (left.as_ref(), right.as_ref()) {
-                (Object::Integer(l), Object::Integer(r)) => self.push(Rc::new((l > r).into())),
+                (Object::Integer(l), Object::Integer(r)) => self.push_bool(l > r),
                 (l, r) => Err(VMError::UnknownOperator {
                     op,
                     left: l.type_name(),
@@ -396,21 +419,30 @@ impl VM {
     }
 
     fn execute_array_index(&mut self, left: &[Object], index: i64) -> Result<(), VMError> {
-        self.push(Rc::new(
-            left.iter()
-                .nth(index as usize)
+        self.push(
+            left.get(index as usize)
                 .cloned()
-                .unwrap_or(Object::Null),
-        ))
+                .map(Rc::new)
+                .unwrap_or_else(|| Rc::clone(&self.null)),
+        )
     }
 
     fn execute_hash_index(&mut self, left: &HashValue, index: &Object) -> Result<(), VMError> {
-        self.push(Rc::new(
+        self.push(
             left.values
                 .get(&index.try_into()?)
                 .cloned()
-                .unwrap_or(Object::Null),
-        ))
+                .map(Rc::new)
+                .unwrap_or_else(|| Rc::clone(&self.null)),
+        )
+    }
+
+    fn push_bool(&mut self, val: bool) -> Result<(), VMError> {
+        if val {
+            self.push(Rc::clone(&self.true_obj))
+        } else {
+            self.push(Rc::clone(&self.false_obj))
+        }
     }
 
     fn push(&mut self, obj: Rc<Object>) -> Result<(), VMError> {

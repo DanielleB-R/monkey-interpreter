@@ -4,14 +4,14 @@ use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct Frame {
-    pub func: Closure,
+    pub func: Rc<Closure>,
     pub ip: isize,
     pub base_pointer: isize,
 }
 
 impl From<CompiledFunction> for Frame {
     fn from(func: CompiledFunction) -> Self {
-        Self::new(func.into(), 0)
+        Self::new(Rc::new(func.into()), 0)
     }
 }
 
@@ -22,7 +22,7 @@ impl From<Instructions> for Frame {
 }
 
 impl Frame {
-    pub fn new(func: Closure, base_pointer: isize) -> Self {
+    pub fn new(func: Rc<Closure>, base_pointer: isize) -> Self {
         Self {
             func,
             ip: -1,

@@ -19,7 +19,7 @@ pub type Result<T> = std::result::Result<T, EvalError>;
 pub enum Object {
     Function(FunctionObject),
     CompiledFunction(CompiledFunction),
-    Closure(Closure),
+    Closure(Rc<Closure>),
     Builtin(Builtin),
     ReturnValue(Box<Object>),
     Integer(i64),
@@ -100,8 +100,8 @@ impl From<CompiledFunction> for Object {
     }
 }
 
-impl From<Closure> for Object {
-    fn from(f: Closure) -> Self {
+impl From<Rc<Closure>> for Object {
+    fn from(f: Rc<Closure>) -> Self {
         Self::Closure(f)
     }
 }
@@ -200,14 +200,14 @@ impl CompiledFunction {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct Closure {
-    pub func: CompiledFunction,
+    pub func: Rc<CompiledFunction>,
     pub free: Vec<Rc<Object>>,
 }
 
 impl From<CompiledFunction> for Closure {
     fn from(func: CompiledFunction) -> Self {
         Self {
-            func,
+            func: Rc::new(func),
             free: Default::default(),
         }
     }
