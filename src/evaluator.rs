@@ -223,11 +223,7 @@ fn eval_array_index_expression(array: Vec<Object>, index: i64) -> Result<Object>
 }
 
 fn eval_hash_index_expression(hash: HashValue, index: Object) -> Result<Object> {
-    Ok(hash
-        .values
-        .get(&index.try_into()?)
-        .cloned()
-        .unwrap_or_default())
+    Ok(hash.get(&index.try_into()?).cloned().unwrap_or_default())
 }
 
 fn eval_hash_literal(
@@ -243,7 +239,7 @@ fn eval_hash_literal(
         map.insert(key.try_into()?, value);
     }
 
-    Ok(Object::Hash(HashValue { values: map }))
+    Ok(Object::Hash(map))
 }
 
 #[cfg(test)]
@@ -644,8 +640,8 @@ addTwo(2);
 
         assert_eq!(
             test_eval(input).unwrap(),
-            Object::Hash(HashValue {
-                values: vec![
+            Object::Hash(
+                vec![
                     (HashKey::String("one".to_owned()), Object::Integer(1)),
                     (HashKey::String("two".to_owned()), Object::Integer(2)),
                     (HashKey::String("three".to_owned()), Object::Integer(3)),
@@ -655,7 +651,7 @@ addTwo(2);
                 ]
                 .into_iter()
                 .collect()
-            })
+            )
         );
     }
 

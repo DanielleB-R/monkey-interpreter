@@ -396,7 +396,7 @@ impl VM {
     fn build_hash(&self, start_index: usize, end_index: usize) -> Result<Object, VMError> {
         let mut hash: HashValue = Default::default();
         for pair in self.stack[start_index..end_index].chunks(2) {
-            hash.values.insert(
+            hash.insert(
                 pair[0].as_ref().clone().try_into()?,
                 pair[1].as_ref().clone(),
             );
@@ -429,8 +429,7 @@ impl VM {
 
     fn execute_hash_index(&mut self, left: &HashValue, index: &Object) -> Result<(), VMError> {
         self.push(
-            left.values
-                .get(&index.try_into()?)
+            left.get(&index.try_into()?)
                 .cloned()
                 .map(Rc::new)
                 .unwrap_or_else(|| Rc::clone(&self.null)),

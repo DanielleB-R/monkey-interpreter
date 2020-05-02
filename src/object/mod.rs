@@ -4,7 +4,6 @@ use crate::code::Instructions;
 use crate::environment::Environment;
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
-use std::iter::FromIterator;
 use std::rc::Rc;
 
 mod eval_error;
@@ -14,6 +13,8 @@ mod hash;
 pub use hash::HashKey;
 
 pub type Result<T> = std::result::Result<T, EvalError>;
+
+pub type HashValue = HashMap<HashKey, Object>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
@@ -26,7 +27,7 @@ pub enum Object {
     Boolean(bool),
     String(String),
     Array(Vec<Object>),
-    Hash(HashValue),
+    Hash(HashMap<HashKey, Object>),
     Null,
 }
 
@@ -46,7 +47,14 @@ impl Display for Object {
 
                 write!(f, "[{}]", identifier_names.join(", "))
             }
-            Self::Hash(h) => write!(f, "{}", h),
+            Self::Hash(h) => {
+                let identifier_names: Vec<String> = h
+                    .iter()
+                    .map(|(key, value)| format!("{}: {}", key, value))
+                    .collect();
+
+                write!(f, "{{{}}}", identifier_names.join(", "))
+            }
             Self::Null => write!(f, "null"),
         }
     }
@@ -88,8 +96,8 @@ impl From<Vec<Object>> for Object {
     }
 }
 
-impl From<HashValue> for Object {
-    fn from(h: HashValue) -> Self {
+impl From<HashMap<HashKey, Object>> for Object {
+    fn from(h: HashMap<HashKey, Object>) -> Self {
         Self::Hash(h)
     }
 }
@@ -216,30 +224,5 @@ impl From<CompiledFunction> for Closure {
 impl Display for Closure {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Closure[{}]", self.func)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct HashValue {
-    pub values: HashMap<HashKey, Object>,
-}
-
-impl FromIterator<(HashKey, Object)> for HashValue {
-    fn from_iter<I: IntoIterator<Item = (HashKey, Object)>>(iter: I) -> Self {
-        Self {
-            values: iter.into_iter().collect(),
-        }
-    }
-}
-
-impl Display for HashValue {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let identifier_names: Vec<String> = self
-            .values
-            .iter()
-            .map(|(key, value)| format!("{}: {}", key, value))
-            .collect();
-
-        write!(f, "{{{}}}", identifier_names.join(", "))
     }
 }
