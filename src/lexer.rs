@@ -32,13 +32,22 @@ impl Lexer {
     }
 
     fn read_char(&mut self) {
-        self.ch = *self.input.as_bytes().get(self.read_position).unwrap_or(&0);
+        self.ch = self
+            .input
+            .as_bytes()
+            .get(self.read_position)
+            .copied()
+            .unwrap_or(0);
         self.position = self.read_position;
         self.read_position += 1;
     }
 
     fn peek_char(&self) -> u8 {
-        *self.input.as_bytes().get(self.read_position).unwrap_or(&0)
+        self.input
+            .as_bytes()
+            .get(self.read_position)
+            .copied()
+            .unwrap_or(0)
     }
 
     pub fn next_token(&mut self) -> Token {

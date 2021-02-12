@@ -1,6 +1,7 @@
 use crate::ast::{self, Expression, Statement};
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
+use ast::Identifier;
 use custom_error::custom_error;
 
 custom_error! {
@@ -119,7 +120,7 @@ impl Parser {
     fn parse_let_statement(&mut self) -> Result<Statement, ParseError> {
         self.expect_peek(TokenType::Ident)?;
 
-        let name: ast::Identifier = self.take_token().into();
+        let name: ast::Identifier = self.parse_identifier_token()?;
         self.expect_peek(TokenType::Assign)?;
         self.next_token();
 
@@ -206,6 +207,17 @@ impl Parser {
 
     fn parse_identifier(&self, name: String) -> Result<Expression, ParseError> {
         Ok(Expression::Identifier(name.into()))
+    }
+
+    fn parse_identifier_token(&mut self) -> Result<Identifier, ParseError> {
+        match &self.cur_token {
+            Some(Token::Ident(name)) => Ok(name.clone().into()),
+            Some(token) => Err(ParseError::WrongNextToken {
+                expected: TokenType::Ident,
+                actual: token.into(),
+            }),
+            None => unreachable!(),
+        }
     }
 
     fn parse_integer_literal(&self, contents: String) -> Result<Expression, ParseError> {
@@ -330,13 +342,13 @@ impl Parser {
 
         self.next_token();
 
-        identifiers.push(self.take_token().into());
+        identifiers.push(self.parse_identifier_token()?);
 
         while self.peek_token().is(TokenType::Comma) {
             self.next_token();
             self.next_token();
             // TODO this panics on certain badly-formed input e.g. "fn (a,)"
-            identifiers.push(self.take_token().into());
+            identifiers.push(self.parse_identifier_token()?);
         }
 
         self.expect_peek(TokenType::RParen)?;

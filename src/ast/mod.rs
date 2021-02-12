@@ -3,7 +3,6 @@ mod statement;
 pub use expression::*;
 pub use statement::*;
 
-use crate::token::Token;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
@@ -62,13 +61,6 @@ impl Display for Identifier {
     }
 }
 
-impl From<Token> for Identifier {
-    fn from(token: Token) -> Self {
-        let value = token.literal().to_owned();
-        Self { value }
-    }
-}
-
 impl From<String> for Identifier {
     fn from(value: String) -> Self {
         Self { value }
@@ -91,7 +83,7 @@ mod test {
     fn test_display() {
         let program = Program {
             statements: vec![Statement::Let(LetStatement {
-                name: Token::Ident("myVar".to_owned()).into(),
+                name: "myVar".to_owned().into(),
                 value: Expression::Identifier(Identifier {
                     value: "anotherVar".to_owned(),
                 }),

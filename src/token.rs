@@ -65,11 +65,4 @@ impl Token {
     pub fn is(&self, token_type: TokenType) -> bool {
         TokenType::from(self) == token_type
     }
-
-    pub fn literal(&self) -> &str {
-        match self {
-            Self::Ident(s) | Self::String(s) | Self::Int(s) => s,
-            _ => panic!("not implemented"),
-        }
-    }
 }
