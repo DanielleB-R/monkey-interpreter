@@ -2,7 +2,7 @@ mod symbol;
 #[cfg(test)]
 mod tests;
 
-use crate::ast::{Expression, Node, Operator, Statement};
+use crate::ast::{Boolean, Expression, Node, Operator, Statement};
 use crate::builtins::Builtin;
 use crate::code::{self, BytecodeError, Instructions, Opcode};
 use crate::object::{CompiledFunction, Object};
@@ -175,8 +175,8 @@ impl Compiler {
                     let constant = self.add_constant(s.into());
                     self.emit(Opcode::Constant, &[constant]);
                 }
-                Expression::Boolean(b) => {
-                    if b.value {
+                Expression::Boolean(Boolean(value)) => {
+                    if value {
                         self.emit(Opcode::True, &[]);
                     } else {
                         self.emit(Opcode::False, &[]);

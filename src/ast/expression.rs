@@ -1,8 +1,10 @@
 use super::{statement::BlockStatement, Identifier};
 use crate::token::Token;
+use derive_more::Display;
 use std::fmt::{Display, Formatter};
+use strum_macros;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Display, Debug, Clone, PartialEq)]
 pub enum Expression {
     Identifier(Identifier),
     IntegerLiteral(i64),
@@ -18,77 +20,30 @@ pub enum Expression {
     Hash(HashLiteral),
 }
 
-impl Display for Expression {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        match self {
-            Self::Identifier(expr) => write!(f, "{}", expr),
-            Self::IntegerLiteral(expr) => write!(f, "{}", expr),
-            Self::Prefix(expr) => write!(f, "{}", expr),
-            Self::Infix(expr) => write!(f, "{}", expr),
-            Self::Boolean(expr) => write!(f, "{}", expr),
-            Self::If(expr) => write!(f, "{}", expr),
-            Self::Function(expr) => write!(f, "{}", expr),
-            Self::Call(expr) => write!(f, "{}", expr),
-            Self::Array(expr) => write!(f, "{}", expr),
-            Self::String(expr) => write!(f, "{}", expr),
-            Self::Index(expr) => write!(f, "{}", expr),
-            Self::Hash(expr) => write!(f, "{}", expr),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum_macros::Display)]
 pub enum Operator {
+    #[strum(to_string = "!")]
     Bang,
+    #[strum(to_string = "-")]
     Minus,
+    #[strum(to_string = "+")]
     Plus,
+    #[strum(to_string = "*")]
     Asterisk,
+    #[strum(to_string = "/")]
     Slash,
+    #[strum(to_string = "<")]
     LT,
+    #[strum(to_string = ">")]
     GT,
+    #[strum(to_string = "==")]
     Eq,
+    #[strum(to_string = "!=")]
     NotEq,
 }
 
-impl Display for Operator {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::Bang => "!",
-                Self::Minus => "-",
-                Self::Plus => "+",
-                Self::Asterisk => "*",
-                Self::Slash => "/",
-                Self::LT => "<",
-                Self::GT => ">",
-                Self::Eq => "==",
-                Self::NotEq => "!=",
-            }
-        )
-    }
-}
-
-impl From<&str> for Operator {
-    fn from(input: &str) -> Self {
-        match input {
-            "!" => Self::Bang,
-            "-" => Self::Minus,
-            "+" => Self::Plus,
-            "*" => Self::Asterisk,
-            "/" => Self::Slash,
-            "<" => Self::LT,
-            ">" => Self::GT,
-            "==" => Self::Eq,
-            "!=" => Self::NotEq,
-            _ => panic!("invalid operator string"),
-        }
-    }
-}
-
-impl From<&Token> for Operator {
-    fn from(input: &Token) -> Self {
+impl From<Token> for Operator {
+    fn from(input: Token) -> Self {
         match input {
             Token::Bang => Self::Bang,
             Token::Minus => Self::Minus,
@@ -99,14 +54,8 @@ impl From<&Token> for Operator {
             Token::GT => Self::GT,
             Token::Eq => Self::Eq,
             Token::NotEq => Self::NotEq,
-            _ => panic!("invalid operator string"),
+            _ => panic!("invalid operator token"),
         }
-    }
-}
-
-impl From<Token> for Operator {
-    fn from(input: Token) -> Self {
-        (&input).into()
     }
 }
 
@@ -135,32 +84,22 @@ impl Display for InfixExpression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Boolean {
-    pub value: bool,
-}
-
-impl Display for Boolean {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.value)
-    }
-}
+#[derive(Debug, Clone, PartialEq, Display)]
+pub struct Boolean(pub bool);
 
 impl From<Token> for Boolean {
     fn from(token: Token) -> Self {
-        Self {
-            value: match token {
-                Token::True => true,
-                Token::False => false,
-                _ => panic!("converting non-boolean token to boolean expr"),
-            },
-        }
+        Self(match token {
+            Token::True => true,
+            Token::False => false,
+            _ => panic!("converting non-boolean token to boolean expr"),
+        })
     }
 }
 
 impl From<bool> for Boolean {
     fn from(value: bool) -> Self {
-        Self { value }
+        Self(value)
     }
 }
 

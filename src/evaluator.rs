@@ -22,7 +22,7 @@ pub fn eval<T: Into<Node>>(node: T, env: &mut Environment) -> Result<Object> {
         },
         Node::Expression(e) => match e {
             ast::Expression::IntegerLiteral(n) => Ok(n.into()),
-            ast::Expression::Boolean(b) => Ok(b.value.into()),
+            ast::Expression::Boolean(ast::Boolean(value)) => Ok(value.into()),
             ast::Expression::Prefix(prefix) => {
                 let right = eval(*prefix.right, env)?;
                 eval_prefix_expression(prefix.operator, right)
