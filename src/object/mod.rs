@@ -16,7 +16,7 @@ pub type Result<T> = std::result::Result<T, EvalError>;
 
 pub type HashValue = HashMap<HashKey, Object>;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub enum Object {
     Function(FunctionObject),
     CompiledFunction(CompiledFunction),
@@ -28,6 +28,7 @@ pub enum Object {
     String(String),
     Array(Vec<Object>),
     Hash(HashMap<HashKey, Object>),
+    #[default]
     Null,
 }
 
@@ -57,12 +58,6 @@ impl Display for Object {
             }
             Self::Null => write!(f, "null"),
         }
-    }
-}
-
-impl Default for Object {
-    fn default() -> Self {
-        Self::Null
     }
 }
 
@@ -127,10 +122,7 @@ impl From<Instructions> for Object {
 
 impl Object {
     pub fn is_return_value(&self) -> bool {
-        match self {
-            Self::ReturnValue(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::ReturnValue(_))
     }
 
     pub fn unwrap_return(self) -> Self {
@@ -157,11 +149,7 @@ impl Object {
     }
 
     pub fn truth_value(&self) -> bool {
-        match self {
-            Self::Boolean(false) => false,
-            Self::Null => false,
-            _ => true,
-        }
+        !matches!(self, Self::Boolean(false) | Self::Null)
     }
 }
 

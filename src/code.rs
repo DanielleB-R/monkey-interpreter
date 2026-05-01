@@ -9,7 +9,7 @@ custom_error! {
     InvalidOpcode{op: u8} = "opcode {op} undefined"
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Opcode {
     Constant,
@@ -50,13 +50,8 @@ pub enum Opcode {
     CurrentClosure,
 
     Pop,
+    #[default]
     Maximum,
-}
-
-impl Default for Opcode {
-    fn default() -> Self {
-        Self::Maximum
-    }
 }
 
 static NO_ARGS: Option<&'static [usize]> = Some(&[]);
@@ -111,7 +106,7 @@ impl TryFrom<u8> for Opcode {
     fn try_from(op: u8) -> Result<Self, Self::Error> {
         if op >= (Opcode::Constant as u8) && op < (Opcode::Maximum as u8) {
             // We know that it's a valid Opcode here so we can transmute
-            Ok(unsafe { std::mem::transmute(op) })
+            Ok(unsafe { std::mem::transmute::<u8, Opcode>(op) })
         } else {
             Err(BytecodeError::InvalidOpcode { op })
         }

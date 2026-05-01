@@ -113,7 +113,7 @@ impl VM {
         let mut ip;
         while self.current_frame().is_valid_ip() {
             let op: Opcode = {
-                let mut current_frame = self.current_frame();
+                let current_frame = self.current_frame();
                 current_frame.ip += 1;
 
                 ip = current_frame.ip as usize;

@@ -2,7 +2,6 @@ use super::{statement::BlockStatement, Identifier};
 use crate::token::Token;
 use derive_more::Display;
 use std::fmt::{Display, Formatter};
-use strum_macros;
 
 #[derive(Display, Debug, Clone, PartialEq)]
 pub enum Expression {
