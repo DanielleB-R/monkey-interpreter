@@ -1,0 +1,8 @@
+on:
+  - push
+
+jobs:
+  test:
+    runs-on: rust
+    steps:
+      - run: cargo test
