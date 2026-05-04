@@ -3,7 +3,7 @@ on:
 
 jobs:
   test:
-    runs-on: rust
+    runs-on: debian
     steps:
       - uses: actions/checkout@v4
       - run: cargo test
