@@ -49,20 +49,20 @@ pub struct Parser {
     lexer: std::iter::Peekable<Lexer>,
     errors: Vec<ParseError>,
 
-    cur_token: Option<Token>,
+    cur_token: Token,
 }
 
 impl Parser {
     pub fn new(mut lexer: Lexer) -> Self {
         Self {
-            cur_token: Some(lexer.next().unwrap()),
+            cur_token: lexer.next().unwrap(),
             lexer: lexer.peekable(),
             errors: Default::default(),
         }
     }
 
     fn next_token(&mut self) {
-        self.cur_token = Some(self.lexer.next().unwrap());
+        self.cur_token = self.lexer.next().unwrap();
     }
 
     fn peek_token(&mut self) -> &Token {
@@ -70,19 +70,17 @@ impl Parser {
     }
 
     fn cur_token_is(&self, token_type: TokenType) -> bool {
-        self.cur_token.as_ref().unwrap().is(token_type)
+        self.cur_token.is(token_type)
     }
 
     fn cur_token_type(&self) -> TokenType {
-        self.cur_token.as_ref().unwrap().into()
-    }
-
-    fn take_token(&mut self) -> Token {
-        self.cur_token.take().unwrap()
+        (&self.cur_token).into()
     }
 
     fn advance_token(&mut self) -> Token {
-        self.cur_token.replace(self.lexer.next().unwrap()).unwrap()
+        let mut token = self.lexer.next().unwrap();
+        std::mem::swap(&mut token, &mut self.cur_token);
+        token
     }
 
     fn skip(&mut self, token_type: TokenType) {
@@ -169,11 +167,11 @@ impl Parser {
     }
 
     fn parse_prefix(&mut self) -> Result<Expression, ParseError> {
-        match self.take_token() {
+        match self.cur_token.clone() {
             Token::Ident(name) => self.parse_identifier(name),
             Token::Int(contents) => self.parse_integer_literal(contents),
-            token @ Token::Bang | token @ Token::Minus => self.parse_prefix_expression(token),
-            token @ Token::True | token @ Token::False => self.parse_boolean(token),
+            token @ (Token::Bang | Token::Minus) => self.parse_prefix_expression(token),
+            token @ (Token::True | Token::False) => self.parse_boolean(token),
             Token::LParen => self.parse_grouped_expression(),
             Token::If => self.parse_if_expression(),
             Token::Function => self.parse_function_literal(),
@@ -181,7 +179,7 @@ impl Parser {
             Token::LBracket => self.parse_array_literal(),
             Token::LBrace => self.parse_hash_literal(),
             token => {
-                self.cur_token = Some(token);
+                self.cur_token = token;
                 Err(ParseError::MissingPrefixParseFunction {
                     token_type: self.cur_token_type(),
                 })
@@ -210,13 +208,12 @@ impl Parser {
     }
 
     fn parse_identifier_token(&mut self) -> Result<Identifier, ParseError> {
-        match &self.cur_token {
-            Some(Token::Ident(name)) => Ok(name.clone().into()),
-            Some(token) => Err(ParseError::WrongNextToken {
+        match self.cur_token.clone() {
+            Token::Ident(name) => Ok(name.into()),
+            token => Err(ParseError::WrongNextToken {
                 expected: TokenType::Ident,
                 actual: token.into(),
             }),
-            None => unreachable!(),
         }
     }
 

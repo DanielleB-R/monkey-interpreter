@@ -32,12 +32,7 @@ impl Lexer {
     }
 
     fn read_char(&mut self) {
-        self.ch = self
-            .input
-            .as_bytes()
-            .get(self.read_position)
-            .copied()
-            .unwrap_or(0);
+        self.ch = self.peek_char();
         self.position = self.read_position;
         self.read_position += 1;
     }

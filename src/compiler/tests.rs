@@ -975,6 +975,6 @@ fn test_instructions(expected: Vec<Instructions>, actual: Instructions) {
     let concatted = concat_instructions(expected);
 
     if concatted != actual {
-        panic!(format!("Expected {}, received {}", concatted, actual));
+        panic!("Expected {}, received {}", concatted, actual);
     }
 }
