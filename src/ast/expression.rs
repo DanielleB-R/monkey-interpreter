@@ -1,4 +1,4 @@
-use super::{statement::BlockStatement, Identifier};
+use super::{Identifier, statement::BlockStatement};
 use crate::token::Token;
 use derive_more::Display;
 use std::fmt::{Display, Formatter};

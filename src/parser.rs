@@ -454,7 +454,7 @@ let foobar = y;
             ("foobar", Expression::Identifier("y".into())),
         ];
 
-        for ((name, value), stmt) in cases.into_iter().zip(program.statements.into_iter()) {
+        for ((name, value), stmt) in cases.into_iter().zip(program.statements) {
             assert_eq!(
                 stmt,
                 Statement::Let(ast::LetStatement {
@@ -544,11 +544,13 @@ return foobar;
 
             assert_eq!(
                 program.statements,
-                vec![Expression::Prefix(ast::PrefixExpression {
-                    operator,
-                    right: Box::new(value),
-                })
-                .into()]
+                vec![
+                    Expression::Prefix(ast::PrefixExpression {
+                        operator,
+                        right: Box::new(value),
+                    })
+                    .into()
+                ]
             );
         }
     }
@@ -679,12 +681,14 @@ return foobar;
 
             assert_eq!(
                 program.statements,
-                vec![Expression::Infix(ast::InfixExpression {
-                    left: Box::new(left),
-                    operator,
-                    right: Box::new(right),
-                })
-                .into()]
+                vec![
+                    Expression::Infix(ast::InfixExpression {
+                        left: Box::new(left),
+                        operator,
+                        right: Box::new(right),
+                    })
+                    .into()
+                ]
             );
         }
     }
@@ -770,18 +774,20 @@ return foobar;
 
         assert_eq!(
             program.statements,
-            vec![Expression::If(ast::IfExpression {
-                condition: Box::new(Expression::Infix(ast::InfixExpression {
-                    left: Box::new(Expression::Identifier("x".into())),
-                    operator: Operator::GT,
-                    right: Box::new(Expression::Identifier("y".into())),
-                })),
-                consequence: ast::BlockStatement {
-                    statements: vec![Expression::Identifier("x".into()).into()],
-                },
-                alternative: None,
-            })
-            .into()]
+            vec![
+                Expression::If(ast::IfExpression {
+                    condition: Box::new(Expression::Infix(ast::InfixExpression {
+                        left: Box::new(Expression::Identifier("x".into())),
+                        operator: Operator::GT,
+                        right: Box::new(Expression::Identifier("y".into())),
+                    })),
+                    consequence: ast::BlockStatement {
+                        statements: vec![Expression::Identifier("x".into()).into()],
+                    },
+                    alternative: None,
+                })
+                .into()
+            ]
         );
     }
 
@@ -795,20 +801,22 @@ return foobar;
 
         assert_eq!(
             program.statements,
-            vec![Expression::If(ast::IfExpression {
-                condition: Box::new(Expression::Infix(ast::InfixExpression {
-                    left: Box::new(Expression::Identifier("x".into())),
-                    operator: Operator::GT,
-                    right: Box::new(Expression::Identifier("y".into())),
-                })),
-                consequence: ast::BlockStatement {
-                    statements: vec![Expression::Identifier("x".into()).into()],
-                },
-                alternative: Some(ast::BlockStatement {
-                    statements: vec![Expression::Identifier("y".into()).into()]
-                }),
-            })
-            .into()]
+            vec![
+                Expression::If(ast::IfExpression {
+                    condition: Box::new(Expression::Infix(ast::InfixExpression {
+                        left: Box::new(Expression::Identifier("x".into())),
+                        operator: Operator::GT,
+                        right: Box::new(Expression::Identifier("y".into())),
+                    })),
+                    consequence: ast::BlockStatement {
+                        statements: vec![Expression::Identifier("x".into()).into()],
+                    },
+                    alternative: Some(ast::BlockStatement {
+                        statements: vec![Expression::Identifier("y".into()).into()]
+                    }),
+                })
+                .into()
+            ]
         );
     }
 
@@ -822,19 +830,23 @@ return foobar;
 
         assert_eq!(
             program.statements,
-            vec![Expression::Function(ast::FunctionLiteral {
-                parameters: vec!["x".into(), "y".into()],
-                body: ast::BlockStatement {
-                    statements: vec![Expression::Infix(ast::InfixExpression {
-                        left: Box::new(Expression::Identifier("x".into())),
-                        operator: Operator::Plus,
-                        right: Box::new(Expression::Identifier("y".into())),
-                    })
-                    .into()]
-                },
-                name: None,
-            })
-            .into()]
+            vec![
+                Expression::Function(ast::FunctionLiteral {
+                    parameters: vec!["x".into(), "y".into()],
+                    body: ast::BlockStatement {
+                        statements: vec![
+                            Expression::Infix(ast::InfixExpression {
+                                left: Box::new(Expression::Identifier("x".into())),
+                                operator: Operator::Plus,
+                                right: Box::new(Expression::Identifier("y".into())),
+                            })
+                            .into()
+                        ]
+                    },
+                    name: None,
+                })
+                .into()
+            ]
         );
     }
 
@@ -853,12 +865,14 @@ return foobar;
 
             assert_eq!(
                 program.statements,
-                vec![Expression::Function(ast::FunctionLiteral {
-                    parameters,
-                    body: ast::BlockStatement { statements: vec![] },
-                    name: None,
-                })
-                .into()]
+                vec![
+                    Expression::Function(ast::FunctionLiteral {
+                        parameters,
+                        body: ast::BlockStatement { statements: vec![] },
+                        name: None,
+                    })
+                    .into()
+                ]
             );
         }
     }
@@ -873,23 +887,25 @@ return foobar;
 
         assert_eq!(
             program.statements,
-            vec![Expression::Call(ast::CallExpression {
-                function: Box::new(Expression::Identifier("add".into())),
-                arguments: vec![
-                    Expression::IntegerLiteral(1),
-                    Expression::Infix(ast::InfixExpression {
-                        left: Box::new(Expression::IntegerLiteral(2)),
-                        operator: Operator::Asterisk,
-                        right: Box::new(Expression::IntegerLiteral(3))
-                    }),
-                    Expression::Infix(ast::InfixExpression {
-                        left: Box::new(Expression::IntegerLiteral(4)),
-                        operator: Operator::Plus,
-                        right: Box::new(Expression::IntegerLiteral(5))
-                    })
-                ]
-            })
-            .into()]
+            vec![
+                Expression::Call(ast::CallExpression {
+                    function: Box::new(Expression::Identifier("add".into())),
+                    arguments: vec![
+                        Expression::IntegerLiteral(1),
+                        Expression::Infix(ast::InfixExpression {
+                            left: Box::new(Expression::IntegerLiteral(2)),
+                            operator: Operator::Asterisk,
+                            right: Box::new(Expression::IntegerLiteral(3))
+                        }),
+                        Expression::Infix(ast::InfixExpression {
+                            left: Box::new(Expression::IntegerLiteral(4)),
+                            operator: Operator::Plus,
+                            right: Box::new(Expression::IntegerLiteral(5))
+                        })
+                    ]
+                })
+                .into()
+            ]
         );
     }
 
@@ -917,23 +933,25 @@ return foobar;
 
         assert_eq!(
             program.statements,
-            vec![Expression::Array(
-                vec![
-                    Expression::IntegerLiteral(1),
-                    Expression::Infix(ast::InfixExpression {
-                        left: Box::new(Expression::IntegerLiteral(2)),
-                        operator: Operator::Asterisk,
-                        right: Box::new(Expression::IntegerLiteral(2))
-                    }),
-                    Expression::Infix(ast::InfixExpression {
-                        left: Box::new(Expression::IntegerLiteral(3)),
-                        operator: Operator::Plus,
-                        right: Box::new(Expression::IntegerLiteral(3))
-                    })
-                ]
+            vec![
+                Expression::Array(
+                    vec![
+                        Expression::IntegerLiteral(1),
+                        Expression::Infix(ast::InfixExpression {
+                            left: Box::new(Expression::IntegerLiteral(2)),
+                            operator: Operator::Asterisk,
+                            right: Box::new(Expression::IntegerLiteral(2))
+                        }),
+                        Expression::Infix(ast::InfixExpression {
+                            left: Box::new(Expression::IntegerLiteral(3)),
+                            operator: Operator::Plus,
+                            right: Box::new(Expression::IntegerLiteral(3))
+                        })
+                    ]
+                    .into()
+                )
                 .into()
-            )
-            .into()]
+            ]
         );
     }
 
@@ -985,24 +1003,26 @@ return foobar;
 
         assert_eq!(
             program.statements,
-            vec![Expression::Hash(
-                vec![
-                    (
-                        Expression::String("one".to_owned()),
-                        Expression::IntegerLiteral(1)
-                    ),
-                    (
-                        Expression::String("two".to_owned()),
-                        Expression::IntegerLiteral(2)
-                    ),
-                    (
-                        Expression::String("three".to_owned()),
-                        Expression::IntegerLiteral(3)
-                    )
-                ]
+            vec![
+                Expression::Hash(
+                    vec![
+                        (
+                            Expression::String("one".to_owned()),
+                            Expression::IntegerLiteral(1)
+                        ),
+                        (
+                            Expression::String("two".to_owned()),
+                            Expression::IntegerLiteral(2)
+                        ),
+                        (
+                            Expression::String("three".to_owned()),
+                            Expression::IntegerLiteral(3)
+                        )
+                    ]
+                    .into()
+                )
                 .into()
-            )
-            .into()]
+            ]
         );
     }
 

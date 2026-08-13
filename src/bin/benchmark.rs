@@ -1,4 +1,4 @@
-use monkey_interpreter::{evaluator::eval, Compiler, Environment, Lexer, Parser, VM};
+use monkey_interpreter::{Compiler, Environment, Lexer, Parser, VM, evaluator::eval};
 use std::env;
 use std::time::Instant;
 

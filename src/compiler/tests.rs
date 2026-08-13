@@ -700,17 +700,19 @@ push([], 1);",
         ),
         (
             "fn() { len([]) }",
-            vec![CompiledFunction::new(
-                concat_instructions(vec![
-                    code::make(Opcode::GetBuiltin, &[0]).unwrap(),
-                    code::make(Opcode::Array, &[0]).unwrap(),
-                    code::make(Opcode::Call, &[1]).unwrap(),
-                    make_single(Opcode::ReturnValue),
-                ]),
-                0,
-                0,
-            )
-            .into()],
+            vec![
+                CompiledFunction::new(
+                    concat_instructions(vec![
+                        code::make(Opcode::GetBuiltin, &[0]).unwrap(),
+                        code::make(Opcode::Array, &[0]).unwrap(),
+                        code::make(Opcode::Call, &[1]).unwrap(),
+                        make_single(Opcode::ReturnValue),
+                    ]),
+                    0,
+                    0,
+                )
+                .into(),
+            ],
             vec![
                 code::make(Opcode::Closure, &[0, 0]).unwrap(),
                 make_single(Opcode::Pop),

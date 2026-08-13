@@ -278,7 +278,7 @@ mod test {
             ),
         ];
 
-        for (opcode, operands, result) in cases.into_iter() {
+        for (opcode, operands, result) in cases {
             let instruction = make(opcode, &operands).unwrap();
 
             assert_eq!(result.len(), instruction.len());
