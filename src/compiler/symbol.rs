@@ -321,7 +321,7 @@ mod test {
                     index: 3
                 },
             );
-        };
+        }
 
         test_resolve_builtins(&mut global);
         let mut first_local = SymbolTable::enclosing(global);

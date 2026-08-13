@@ -187,7 +187,7 @@ impl VM {
                 Opcode::GetBuiltin => {
                     let index = self.get_u8_arg(ip);
 
-                    let builtin = Object::Builtin(unsafe { std::mem::transmute(index) });
+                    let builtin = Object::Builtin(index.try_into().unwrap());
                     self.push(Rc::new(builtin))?;
                 }
                 Opcode::GetFree => {

@@ -108,6 +108,7 @@ fn puts(args: Vec<Object>) -> Result<Object> {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Display, EnumString, EnumIter)]
 #[strum(serialize_all = "snake_case")]
+#[repr(u8)]
 pub enum Builtin {
     Len,
     Puts,
@@ -126,6 +127,18 @@ impl Builtin {
             Self::Last => last,
             Self::Rest => rest,
             Self::Push => push,
+        }
+    }
+}
+
+impl TryFrom<u8> for Builtin {
+    type Error = ();
+
+    fn try_from(value: u8) -> std::prelude::v1::Result<Self, Self::Error> {
+        if value > Self::Push as u8 {
+            Err(())
+        } else {
+            Ok(unsafe { std::mem::transmute::<u8, Self>(value) })
         }
     }
 }

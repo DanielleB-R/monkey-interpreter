@@ -64,7 +64,7 @@ pub fn eval<T: Into<Node>>(node: T, env: &mut Environment) -> Result<Object> {
 fn eval_program(program: ast::Program, env: &mut Environment) -> Result<Object> {
     let mut result = Object::default();
 
-    for stmt in program.statements.into_iter() {
+    for stmt in program.statements {
         result = eval(stmt, env)?;
 
         if let Object::ReturnValue(obj) = result {
@@ -78,7 +78,7 @@ fn eval_program(program: ast::Program, env: &mut Environment) -> Result<Object> 
 fn eval_block_statement(block: ast::BlockStatement, env: &mut Environment) -> Result<Object> {
     let mut result = Object::default();
 
-    for stmt in block.statements.into_iter() {
+    for stmt in block.statements {
         result = eval(stmt, env)?;
 
         if result.is_return_value() {
@@ -92,7 +92,7 @@ fn eval_block_statement(block: ast::BlockStatement, env: &mut Environment) -> Re
 fn eval_expressions(exprs: Vec<ast::Expression>, env: &mut Environment) -> Result<Vec<Object>> {
     let mut result = vec![];
 
-    for expr in exprs.into_iter() {
+    for expr in exprs {
         result.push(eval(expr, env)?)
     }
     Ok(result)
@@ -197,7 +197,7 @@ fn apply_function(func: Object, args: Vec<Object>) -> Result<Object> {
 fn extend_function_env(func: &FunctionObject, args: Vec<Object>) -> Environment {
     let mut env = Environment::with_enclosed(&func.env);
 
-    for (param, arg) in func.parameters.iter().zip(args.into_iter()) {
+    for (param, arg) in func.parameters.iter().zip(args) {
         env.set(&param.value, arg);
     }
 
@@ -232,7 +232,7 @@ fn eval_hash_literal(
 ) -> Result<Object> {
     let mut map = HashMap::new();
 
-    for (key_expr, val_expr) in hash.into_iter() {
+    for (key_expr, val_expr) in hash {
         let key = eval(key_expr, env)?;
         let value = eval(val_expr, env)?;
 

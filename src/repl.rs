@@ -46,7 +46,8 @@ pub fn start() {
             .symbol_table
             .define_builtin(builtin as isize, &builtin.to_string());
     }
-    let mut vm_state: Vec<Rc<Object>> = vec![Rc::new(Object::Null); 65536];
+    let null_rc = Rc::new(Object::Null);
+    let mut vm_state: Vec<Rc<Object>> = vec![null_rc; 65536];
     loop {
         print!("{}", PROMPT);
         let _ = io::stdout().flush();

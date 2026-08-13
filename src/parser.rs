@@ -78,9 +78,7 @@ impl Parser {
     }
 
     fn advance_token(&mut self) -> Token {
-        let mut token = self.lexer.next().unwrap();
-        std::mem::swap(&mut token, &mut self.cur_token);
-        token
+        std::mem::replace(&mut self.cur_token, self.lexer.next().unwrap())
     }
 
     fn skip(&mut self, token_type: TokenType) {
