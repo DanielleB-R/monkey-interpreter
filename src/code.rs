@@ -283,7 +283,7 @@ mod test {
 
             assert_eq!(result.len(), instruction.len());
 
-            for (expected, actual) in result.into_iter().zip(instruction.into_iter()) {
+            for (expected, actual) in result.into_iter().zip(instruction) {
                 assert_eq!(expected, actual);
             }
         }
